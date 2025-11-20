@@ -2,11 +2,12 @@
 
 ## OAuth 2.0 Client Credentials
 
-**Client ID:** `122156905232-aahdo189pqkbjgcbmb65hkok1pjshn1a.apps.googleusercontent.com`
+> ⚠️ **IMPORTANT:** Never store real secrets in git history.  
+> Use environment variables (`.env`, secret manager, etc.) instead.
 
-**Client Secret:** `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`
+**Client ID:** `YOUR_GOOGLE_OAUTH_CLIENT_ID`
 
-⚠️ **IMPORTANT:** Never commit client secrets to version control!
+**Client Secret:** `YOUR_GOOGLE_OAUTH_CLIENT_SECRET`
 
 ## Authorized JavaScript Origins
 
