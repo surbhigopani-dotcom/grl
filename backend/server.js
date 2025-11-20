@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs');
 
 dotenv.config();
 
@@ -11,10 +13,50 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// API Routes (must be before static files)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/loans', require('./routes/loans'));
 app.use('/api/admin', require('./routes/admin'));
+
+// Serve static files from the React app build directory (only in production)
+const frontendBuildPath = path.join(__dirname, '../frontend/build');
+
+if (fs.existsSync(frontendBuildPath)) {
+  // Serve static files from the React app build directory
+  // The static middleware will pass through to next middleware if file not found
+  app.use(express.static(frontendBuildPath, { 
+    index: false, // Don't serve index.html automatically, we'll handle it in catch-all
+    fallthrough: true // Pass through to next middleware if file not found
+  }));
+
+  // Catch-all handler: send back React's index.html file for any non-API routes
+  // This fixes the 404 error on refresh for client-side routes
+  // Handle all HTTP methods (GET, POST, etc.) for SPA routing
+  app.all('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ message: 'API route not found' });
+    }
+    // For all other routes (including /admin/login, /admin/dashboard, etc.), 
+    // serve index.html to let React Router handle routing
+    res.sendFile(path.join(frontendBuildPath, 'index.html'), (err) => {
+      if (err) {
+        console.error('Error sending index.html:', err);
+        res.status(500).json({ message: 'Error loading application' });
+      }
+    });
+  });
+} else {
+  // In development, if build doesn't exist, just handle API routes
+  app.all('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      return res.status(404).json({ 
+        message: 'Frontend build not found. Please run "npm run build" in the frontend directory.' 
+      });
+    }
+    res.status(404).json({ message: 'API route not found' });
+  });
+}
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://khuntakash1211_db_user:lZH3uGqPnScmNLJS@cluster0.ax0teyf.mongodb.net/growloan?retryWrites=true&w=majority';

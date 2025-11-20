@@ -13,6 +13,7 @@ import TransactionHistory from './pages/TransactionHistory';
 import Payment from './pages/Payment';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import NotFound from './pages/NotFound';
 import { Loader } from './components/ui/Loader';
 import './App.css';
 
@@ -118,6 +119,8 @@ function App() {
               path="/admin/dashboard" 
               element={<AdminDashboard />} 
             />
+            {/* Catch-all route for 404 - must be last */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
           <ToastContainer 
             position="top-right"

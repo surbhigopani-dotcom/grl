@@ -2,6 +2,14 @@ const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
+// Load environment variables if dotenv is available
+// This ensures env vars are loaded even if this module is imported before server.js
+try {
+  require('dotenv').config();
+} catch (error) {
+  // dotenv might not be installed or already loaded, that's okay
+}
+
 // Initialize Firebase Admin SDK
 // You need to download service account key from Firebase Console
 // and save it as serviceAccountKey.json in the config folder
@@ -32,10 +40,15 @@ if (!serviceAccount) {
   const clientX509CertUrl = process.env.FIREBASE_CLIENT_X509_CERT_URL;
 
   // Validate all required fields are present
+  const envPath = path.join(process.cwd(), '.env');
+  const configPath = path.join(__dirname, 'serviceAccountKey.json');
+  
   if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
     throw new Error(
-      'Firebase Admin: FIREBASE_PROJECT_ID is missing or invalid. ' +
-      'Please set it in your .env file or provide serviceAccountKey.json file.'
+      'Firebase Admin: FIREBASE_PROJECT_ID is missing or invalid.\n' +
+      `Please create a .env file at: ${envPath}\n` +
+      `Or provide serviceAccountKey.json at: ${configPath}\n` +
+      'See env.example.txt for the required environment variables.'
     );
   }
 
