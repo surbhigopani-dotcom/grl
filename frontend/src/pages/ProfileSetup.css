@@ -1,0 +1,463 @@
+.profile-setup-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.profile-setup-card {
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  max-width: 800px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.setup-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.setup-header h1 {
+  color: #333;
+  font-size: 2rem;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.setup-header p {
+  color: #666;
+  font-size: 1rem;
+}
+
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40px;
+  gap: 10px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.step-number {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+}
+
+.step.active .step-number {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.step.completed .step-number {
+  background: #4caf50;
+  color: white;
+}
+
+.step.completed .step-number::after {
+  content: '✓';
+  font-size: 1.5rem;
+}
+
+.step-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.step.active .step-label {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.step-line {
+  flex: 1;
+  height: 3px;
+  background: #e0e0e0;
+  margin: 0 10px;
+  max-width: 100px;
+  transition: all 0.3s ease;
+}
+
+.step-line.completed {
+  background: #4caf50;
+}
+
+.form-content {
+  min-height: 400px;
+  margin-bottom: 30px;
+}
+
+.step-content h2 {
+  color: #333;
+  font-size: 1.5rem;
+  margin-bottom: 25px;
+  font-weight: 700;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group label {
+  color: #333;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.required {
+  color: #f44336;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 14px 18px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  outline: none;
+  font-family: inherit;
+  background: #fafafa;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: white;
+}
+
+.form-group input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding-top: 20px;
+  border-top: 2px solid #f0f0f0;
+}
+
+.primary-button {
+  flex: 1;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.35);
+  letter-spacing: 0.3px;
+}
+
+.primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  padding: 16px 28px;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 14px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.secondary-button:hover {
+  background: #f8f9ff;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .profile-setup-card {
+    padding: 25px 20px;
+    border-radius: 20px;
+  }
+
+  .setup-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .step-indicator {
+    gap: 5px;
+  }
+
+  .step-number {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .step-label {
+    font-size: 0.7rem;
+  }
+
+  .step-line {
+    max-width: 50px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+}
+
+/* Loan Offer Section Styles */
+.loan-offer-section {
+  margin-top: 30px;
+  padding: 28px;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffeef0 100%);
+  border-radius: 20px;
+  border: 2px solid #ff6b6b;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(255, 107, 107, 0.15);
+}
+
+.loan-offer-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #ff6b6b, #ff8787, #ff6b6b);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.offer-header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.offer-header-section h3 {
+  color: #ff6b6b;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.offer-badge {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+  color: white;
+  padding: 8px 18px;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  letter-spacing: 0.5px;
+}
+
+.offer-amount-display {
+  text-align: center;
+  padding: 30px 25px;
+  background: white;
+  border-radius: 18px;
+  margin: 24px 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 2px solid #ff6b6b;
+}
+
+.offer-label-text {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.offer-amount-value {
+  color: #ff6b6b;
+  font-size: 2.8rem;
+  font-weight: 900;
+  text-shadow: 2px 2px 4px rgba(255, 107, 107, 0.2);
+  line-height: 1.2;
+}
+
+.charges-breakdown {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  margin: 24px 0;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.charges-breakdown h4 {
+  color: #333;
+  margin-bottom: 18px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 12px;
+}
+
+.charge-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.charge-item:last-child {
+  border-bottom: none;
+}
+
+.charge-item.total {
+  margin-top: 12px;
+  padding-top: 18px;
+  border-top: 2px solid #667eea;
+  font-weight: 700;
+}
+
+.charge-label {
+  color: #666;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.charge-item.total .charge-label {
+  color: #333;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.charge-value {
+  color: #333;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.charge-item.total .charge-value.total-payment {
+  color: #667eea;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.offer-note {
+  margin-top: 24px;
+  padding: 18px 20px;
+  background: #e3f2fd;
+  border-radius: 12px;
+  border-left: 4px solid #2196f3;
+}
+
+.offer-note p {
+  margin: 6px 0;
+  color: #1976d2;
+  font-size: 0.95rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mobile Responsive for Loan Offer */
+@media (max-width: 768px) {
+  .loan-offer-section {
+    padding: 20px;
+  }
+
+  .offer-header-section h3 {
+    font-size: 1.2rem;
+  }
+
+  .offer-amount-value {
+    font-size: 2rem;
+  }
+
+  .charges-breakdown {
+    padding: 15px;
+  }
+}
+
