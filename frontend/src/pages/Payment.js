@@ -153,89 +153,51 @@ const Payment = () => {
   // Transaction ID format (10 digits like PHP code)
   const txnId = Math.floor(Math.random() * 10000000000);
   
-  // Sign parameter (from PHP code)
+  // Sign parameter (from PHP code - exact match)
   const signParam = 'AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr';
   
-  // Standard UPI string for QR code (PHP format)
+  // Standard UPI string for QR code (PHP format - clean without sign/mc)
   const upiPaymentString = `upi://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`;
 
   // Helper function to check if iOS
   const isIOS = () => {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   };
 
-  // Payment methods with PHP code format (exact match)
-  const paymentMethods = [
-    {
-      id: 'gpay',
-      name: 'Google Pay',
-      icon: '📱',
-      logo: 'G',
-      color: 'from-blue-500 to-blue-600',
-      // GPay deep links (multiple options for better compatibility)
-      deepLink: `gpay://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`,
-      fallbackLink: `tez://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`,
-      // For Payment Request API
-      usePaymentRequest: true
-    },
-    {
-      id: 'paytm',
-      name: 'Paytm',
-      icon: '💰',
-      logo: 'P',
-      color: 'from-blue-600 to-blue-700',
-      // PHP format (exact): paytmmp://cash_wallet?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...&featuretype=money_transfer
-      deepLink: `paytmmp://cash_wallet?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}&featuretype=money_transfer`,
-      offer: '₹200'
-    },
-    {
-      id: 'phonepe',
-      name: 'PhonePe UPI',
-      icon: '💳',
-      logo: 'पे',
-      color: 'from-purple-500 to-purple-600',
-      // PHP format (exact): phonepe://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
-      deepLink: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`,
-      // Alternative format if above doesn't work
-      altLink: `phonepe://transact?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=${txnId}`,
-      note: 'Low success rate currently'
-    },
-    {
-      id: 'bhim',
-      name: 'BHIM UPI',
-      icon: '🏦',
-      logo: 'BHIM',
-      color: 'from-green-600 to-green-700',
-      // PHP format (exact): bhim://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
-      deepLink: `bhim://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`
-    },
-    {
-      id: 'whatsapp',
-      name: 'WhatsApp Pay',
-      icon: '💬',
-      logo: 'WA',
-      color: 'from-green-500 to-green-600',
-      // PHP format (exact): whatsapp://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
-      deepLink: `whatsapp://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`
-    },
-    {
-      id: 'cred',
-      name: 'CRED pay',
-      icon: '🛡️',
-      logo: 'CRED',
-      color: 'from-gray-600 to-gray-700',
-      // Use standard UPI format for CRED
-      deepLink: upiPaymentString
-    }
-  ];
+  // Helper function to check if Android
+  const isAndroid = () => {
+    return /Android/.test(navigator.userAgent);
+  };
 
-  const handleUPIOther = () => {
-    // Open standard UPI link which triggers native app selector on mobile
-    // This will show all available UPI apps on the device
+
+
+  const handleUPIOther = (e) => {
+    // Prevent default behavior
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     try {
       toast.info('Opening UPI apps...');
-      window.location.href = upiPaymentString;
-      setVerifying(true);
+
+      if (isIOS()) {
+        // iOS - Use Paytm link for better compatibility (PHP code format)
+        const iosUpiLink = `paytmmp://cash_wallet?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}&featuretype=money_transfer`;
+        window.location.href = iosUpiLink;
+      } else if (isAndroid()) {
+        // Android - Standard UPI link (triggers native app selector)
+        window.location.href = upiPaymentString;
+      } else {
+        // Desktop/other - Standard UPI
+        window.location.href = upiPaymentString;
+      }
+
+      // Show message to verify after payment
+      setTimeout(() => {
+        toast.success('After completing payment, click "Verify Payment" button');
+      }, 1500);
     } catch (error) {
       console.error('Error opening UPI:', error);
       toast.error('Failed to open UPI apps. Please scan QR code.');
@@ -623,11 +585,11 @@ const Payment = () => {
           </p>
         </div>
 
-        {/* Verify Payment Button */}
+        {/* Verify Payment Button - Always Available */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
           <button
             onClick={handleVerifyPayment}
-            disabled={processing || verifying}
+            disabled={processing}
             className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 rounded-lg font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {verifying ? (
