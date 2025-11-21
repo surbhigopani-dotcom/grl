@@ -147,27 +147,25 @@ const Payment = () => {
   const totalAmount = loan ? (loan.totalPaymentAmount || 
     (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149)) : 0;
 
-  // Generate UPI payment string (Trusted format to avoid risky warnings)
+  // Generate UPI payment string (PHP code format - exact match)
   const loanId = loan?.loanId || loan?._id?.slice(-8);
   const referenceId = `GL${loanId}`;
   const siteName = 'GrowLoan';
-  // Use proper transaction ID format (12 digits)
-  const txnId = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(0, 12);
-  const paymentNote = `Loan Payment ${referenceId}`;
+  // Transaction ID format (10 digits like PHP code)
+  const txnId = Math.floor(Math.random() * 10000000000);
   
-  // Trusted UPI string format (avoid risky warnings)
-  // Use proper encoding and trusted merchant parameters
-  const upiPaymentString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}`;
+  // Sign parameter (from PHP code)
+  const signParam = 'AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr';
   
-  // Trusted deep link format (without sign to avoid risk warnings)
-  // Use intent-based URLs for better trust
+  // Standard UPI string for QR code (PHP format)
+  const upiPaymentString = `upi://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`;
 
   // Helper function to check if iOS
   const isIOS = () => {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   };
 
-  // Payment methods with trusted deep links (avoid risky warnings)
+  // Payment methods with PHP code format (exact match)
   const paymentMethods = [
     {
       id: 'gpay',
@@ -176,10 +174,8 @@ const Payment = () => {
       logo: 'G',
       color: 'from-blue-500 to-blue-600',
       selected: selectedPaymentMethod === 'gpay',
-      // Use standard UPI format for GPay (most trusted)
-      deepLink: upiPaymentString,
-      // Intent URL for better trust
-      intentLink: `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}#Intent;scheme=upi;package=com.google.android.apps.nfc.payment;end`
+      // For GPay, use Payment Request API (like PHP code)
+      usePaymentRequest: true
     },
     {
       id: 'paytm',
@@ -188,10 +184,8 @@ const Payment = () => {
       logo: 'P',
       color: 'from-blue-600 to-blue-700',
       selected: selectedPaymentMethod === 'paytm',
-      // Use standard UPI format (avoid cash_wallet to reduce risk warnings)
-      deepLink: `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}`,
-      // Paytm specific intent
-      intentLink: `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}#Intent;scheme=upi;package=net.one97.paytm;end`,
+      // PHP format (exact): paytmmp://cash_wallet?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...&featuretype=money_transfer
+      deepLink: `paytmmp://cash_wallet?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}&featuretype=money_transfer`,
       offer: '₹200'
     },
     {
@@ -201,10 +195,8 @@ const Payment = () => {
       logo: 'पे',
       color: 'from-purple-500 to-purple-600',
       selected: selectedPaymentMethod === 'phonepe',
-      // Standard UPI format
-      deepLink: `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}`,
-      // PhonePe intent
-      intentLink: `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}#Intent;scheme=upi;package=com.phonepe.app;end`,
+      // PHP format (exact): phonepe://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
+      deepLink: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`,
       note: 'Low success rate currently'
     },
     {
@@ -214,10 +206,8 @@ const Payment = () => {
       logo: 'BHIM',
       color: 'from-green-600 to-green-700',
       selected: selectedPaymentMethod === 'bhim',
-      // Standard UPI format
-      deepLink: `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}`,
-      // BHIM intent
-      intentLink: `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}#Intent;scheme=upi;package=in.org.npci.upiapp;end`
+      // PHP format (exact): bhim://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
+      deepLink: `bhim://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`
     },
     {
       id: 'whatsapp',
@@ -226,10 +216,8 @@ const Payment = () => {
       logo: 'WA',
       color: 'from-green-500 to-green-600',
       selected: selectedPaymentMethod === 'whatsapp',
-      // Standard UPI format
-      deepLink: `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}`,
-      // WhatsApp intent
-      intentLink: `intent://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${totalAmount.toFixed(2)}&tr=${txnId}&cu=INR&tn=${encodeURIComponent(paymentNote)}#Intent;scheme=upi;package=com.whatsapp;end`
+      // PHP format (exact): whatsapp://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
+      deepLink: `whatsapp://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`
     },
     {
       id: 'cred',
@@ -238,26 +226,8 @@ const Payment = () => {
       logo: 'CRED',
       color: 'from-gray-600 to-gray-700',
       selected: selectedPaymentMethod === 'cred',
-      // Standard UPI format
+      // Use standard UPI format for CRED
       deepLink: upiPaymentString
-    },
-    {
-      id: 'credit_card',
-      name: 'Credit Card',
-      icon: '💳',
-      logo: '...9999',
-      color: 'from-indigo-600 to-indigo-700',
-      selected: selectedPaymentMethod === 'credit_card',
-      secured: true
-    },
-    {
-      id: 'debit_card',
-      name: 'Debit Card',
-      icon: '💳',
-      logo: '...9999',
-      color: 'from-teal-600 to-teal-700',
-      selected: selectedPaymentMethod === 'debit_card',
-      secured: true
     }
   ];
 
@@ -266,39 +236,102 @@ const Payment = () => {
   };
 
   const handlePayNow = async (method) => {
-    // For manual payment methods (cards), just show instructions
-    if (method.id === 'credit_card' || method.id === 'debit_card') {
-      toast.info(`For ${method.name}, please complete payment manually using UPI ID: ${upiId} and amount: ₹${totalAmount.toLocaleString()}, then click "Verify Payment" button.`);
-      return;
-    }
-
     try {
       toast.info(`Opening ${method.name}...`);
       
-      // Try intent URL first (most trusted, avoids risky warnings)
-      if (method.intentLink) {
-        try {
-          window.location.href = method.intentLink;
+      // For GPay, use Payment Request API (like PHP code)
+      if (method.id === 'gpay' && method.usePaymentRequest) {
+        if (isIOS()) {
+          // iOS fallback - use standard UPI format (not Paytm)
+          window.location.href = upiPaymentString;
           setVerifying(true);
           return;
-        } catch (e) {
-          console.log('Intent link failed, trying deep link');
         }
-      }
 
-      // Fallback to standard UPI deep link (trusted format)
-      if (method.deepLink) {
-        // Use standard UPI format which is most trusted
-        window.location.href = method.deepLink;
-        setVerifying(true);
+        if (!window.PaymentRequest) {
+          // Fallback to standard UPI
+          window.location.href = upiPaymentString;
+          setVerifying(true);
+          return;
+        }
+
+        try {
+          const supportedInstruments = [{
+            supportedMethods: ['https://tez.google.com/pay'],
+            data: {
+              pa: upiId,
+              pn: siteName,
+              tr: txnId.toString(),
+              url: `${window.location.origin}/payment-success/${txnId}`,
+              mc: '0000',
+              tn: `${siteName}_${txnId}`,
+            },
+          }];
+
+          const details = {
+            total: {
+              label: 'Total',
+              amount: {
+                currency: 'INR',
+                value: totalAmount.toFixed(2),
+              },
+            },
+            displayItems: [{
+              label: 'Loan Payment',
+              amount: {
+                currency: 'INR',
+                value: totalAmount.toFixed(2),
+              },
+            }],
+          };
+
+          const request = new PaymentRequest(supportedInstruments, details);
+
+          request.canMakePayment().then((result) => {
+            if (result) {
+              return request.show();
+            } else {
+              // Fallback to standard UPI
+              window.location.href = upiPaymentString;
+              setVerifying(true);
+            }
+          }).then((instrument) => {
+            if (instrument) {
+              // Process payment response
+              instrument.complete('success').then(() => {
+                setVerifying(true);
+              }).catch((err) => {
+                console.error('Payment completion error:', err);
+                setVerifying(true);
+              });
+            }
+          }).catch((err) => {
+            console.error('Payment Request Error:', err);
+            // Fallback to standard UPI
+            window.location.href = upiPaymentString;
+            setVerifying(true);
+          });
+        } catch (error) {
+          console.error('GPay error:', error);
+          // Fallback to standard UPI
+          window.location.href = upiPaymentString;
+          setVerifying(true);
+        }
       } else {
-        // Final fallback to generic UPI
-        window.location.href = upiPaymentString;
-        setVerifying(true);
+        // For other payment methods, use direct deep link (PHP code format)
+        if (method.deepLink) {
+          // Direct redirect (like PHP code: window.location.href = redirect_url)
+          window.location.href = method.deepLink;
+          setVerifying(true);
+        } else {
+          // Fallback to standard UPI
+          window.location.href = upiPaymentString;
+          setVerifying(true);
+        }
       }
     } catch (error) {
       console.error(`Error opening ${method.name}:`, error);
-      toast.error(`Failed to open ${method.name}. Please try scanning QR code or use manual payment.`);
+      toast.error(`Failed to open ${method.name}. Please try scanning QR code.`);
     }
   };
 
@@ -587,35 +620,6 @@ const Payment = () => {
             )}
           </div>
 
-          {/* Credit Card */}
-          <div className="mb-3">
-            <div 
-              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedMethod?.id === 'credit_card' 
-                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
-                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
-              }`}
-              onClick={() => handlePaymentMethodSelect('credit_card')}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white">
-                  💳
-                </div>
-                <div>
-                  <span className="font-medium text-gray-800 dark:text-gray-200 block">Credit Card</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">...9999</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1 rounded">Secured</span>
-                {selectedMethod?.id === 'credit_card' && (
-                  <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-white" />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* UPI Section */}
