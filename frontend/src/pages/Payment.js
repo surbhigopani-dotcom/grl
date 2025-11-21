@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin, ChevronDown } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin } from 'lucide-react';
 import { Loader } from '../components/ui/Loader';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -17,11 +17,9 @@ const Payment = () => {
   const [processing, setProcessing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [upiId, setUpiId] = useState('7211132000@ybl');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('gpay');
   const [verifying, setVerifying] = useState(false);
   const [paymentVerified, setPaymentVerified] = useState(false);
   const [qrSize, setQrSize] = useState(200);
-  const [showAppList, setShowAppList] = useState(false);
 
   useEffect(() => {
     // Set QR code size based on screen width
@@ -174,7 +172,6 @@ const Payment = () => {
       icon: '📱',
       logo: 'G',
       color: 'from-blue-500 to-blue-600',
-      selected: selectedPaymentMethod === 'gpay',
       // GPay deep links (multiple options for better compatibility)
       deepLink: `gpay://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`,
       fallbackLink: `tez://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`,
@@ -187,7 +184,6 @@ const Payment = () => {
       icon: '💰',
       logo: 'P',
       color: 'from-blue-600 to-blue-700',
-      selected: selectedPaymentMethod === 'paytm',
       // PHP format (exact): paytmmp://cash_wallet?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...&featuretype=money_transfer
       deepLink: `paytmmp://cash_wallet?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}&featuretype=money_transfer`,
       offer: '₹200'
@@ -198,7 +194,6 @@ const Payment = () => {
       icon: '💳',
       logo: 'पे',
       color: 'from-purple-500 to-purple-600',
-      selected: selectedPaymentMethod === 'phonepe',
       // PHP format (exact): phonepe://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
       deepLink: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`,
       // Alternative format if above doesn't work
@@ -211,7 +206,6 @@ const Payment = () => {
       icon: '🏦',
       logo: 'BHIM',
       color: 'from-green-600 to-green-700',
-      selected: selectedPaymentMethod === 'bhim',
       // PHP format (exact): bhim://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
       deepLink: `bhim://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`
     },
@@ -221,7 +215,6 @@ const Payment = () => {
       icon: '💬',
       logo: 'WA',
       color: 'from-green-500 to-green-600',
-      selected: selectedPaymentMethod === 'whatsapp',
       // PHP format (exact): whatsapp://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
       deepLink: `whatsapp://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`
     },
@@ -231,14 +224,22 @@ const Payment = () => {
       icon: '🛡️',
       logo: 'CRED',
       color: 'from-gray-600 to-gray-700',
-      selected: selectedPaymentMethod === 'cred',
       // Use standard UPI format for CRED
       deepLink: upiPaymentString
     }
   ];
 
-  const handlePaymentMethodSelect = (methodId) => {
-    setSelectedPaymentMethod(methodId);
+  const handleUPIOther = () => {
+    // Open standard UPI link which triggers native app selector on mobile
+    // This will show all available UPI apps on the device
+    try {
+      toast.info('Opening UPI apps...');
+      window.location.href = upiPaymentString;
+      setVerifying(true);
+    } catch (error) {
+      console.error('Error opening UPI:', error);
+      toast.error('Failed to open UPI apps. Please scan QR code.');
+    }
   };
 
   const handlePayNow = async (method) => {
@@ -430,10 +431,9 @@ const Payment = () => {
       }
 
       const loanId = loan.id || loan._id;
-      const paymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'UPI';
       
       const response = await axios.post(`/loans/${loanId}/payment`, {
-        paymentMethod: paymentMethod
+        paymentMethod: 'UPI'
       });
 
       toast.success('✅ Payment submitted! Verifying...');
@@ -510,8 +510,6 @@ const Payment = () => {
       </div>
     );
   }
-
-  const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethod);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -612,47 +610,17 @@ const Payment = () => {
           </div>
         </div>
 
-        {/* UPI Other Button - Single Button with App List */}
+        {/* UPI Other Button - Opens Native App Selector */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
           <button
-            onClick={() => setShowAppList(!showAppList)}
-            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-4 rounded-lg font-semibold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+            onClick={handleUPIOther}
+            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-4 rounded-lg font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
           >
-            <span>UPI Other</span>
-            <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${showAppList ? 'rotate-180' : ''}`} />
+            UPI Other
           </button>
-
-          {/* Payment Apps List (shown when button clicked) */}
-          {showAppList && (
-            <div className="mt-4 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-              {paymentMethods.map((method) => (
-                <div
-                  key={method.id}
-                  onClick={() => {
-                    setShowAppList(false);
-                    handlePayNow(method);
-                  }}
-                  className="flex items-center justify-between p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 cursor-pointer transition-all active:scale-95"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${method.color} flex items-center justify-center text-white font-bold text-lg shadow-md`}>
-                      {method.logo || method.icon}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-800 dark:text-gray-200 block">{method.name}</span>
-                      {method.offer && (
-                        <span className="text-xs text-green-600 font-semibold">{method.offer}</span>
-                      )}
-                      {method.note && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 block">{method.note}</span>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronDown className="w-5 h-5 text-gray-400 rotate-[-90deg]" />
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+            Select from available UPI apps on your device
+          </p>
         </div>
 
         {/* Verify Payment Button */}
