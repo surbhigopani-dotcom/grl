@@ -144,7 +144,7 @@ const Payment = () => {
   }, [loan, verifying, paymentVerified, navigate]);
 
   const totalAmount = loan ? (loan.totalPaymentAmount || 
-    (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149)) : 0;
+    (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149.50)) : 0;
 
   // Generate UPI payment strings (app-specific deep links work better than generic upi://pay)
   const loanId = loan?.loanId || loan?._id?.slice(-8);
@@ -154,23 +154,18 @@ const Payment = () => {
   // Standard UPI string for QR code (generic - works in QR only)
   const upiPaymentString = `upi://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`;
   
+  // Format amount to 2 decimal places for UPI (required format)
+  const formattedAmount = totalAmount.toFixed(2);
+  
   // App-specific deep links (these bypass "merchant link" restrictions)
   const paymentApps = [
-    {
-      id: 'gpay',
-      name: 'Google Pay',
-      icon: '🔵',
-      color: 'from-blue-500 to-blue-600',
-      // GPay specific scheme (NOT generic upi://)
-      link: `tez://upi/pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
-    },
     {
       id: 'phonepe',
       name: 'PhonePe',
       icon: '🟣',
       color: 'from-purple-500 to-purple-600',
-      // PhonePe specific scheme
-      link: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+      // PhonePe specific scheme (try first - often has higher limits)
+      link: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
     },
     {
       id: 'paytm',
@@ -178,7 +173,16 @@ const Payment = () => {
       icon: '🔷',
       color: 'from-blue-600 to-blue-700',
       // Paytm specific scheme
-      link: `paytmmp://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+      link: `paytmmp://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
+    },
+    {
+      id: 'gpay',
+      name: 'Google Pay',
+      icon: '🔵',
+      color: 'from-blue-500 to-blue-600',
+      // GPay specific scheme (may have bank limits)
+      link: `tez://upi/pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`,
+      note: 'Check your bank UPI limit'
     },
     {
       id: 'bhim',
@@ -186,7 +190,7 @@ const Payment = () => {
       icon: '🟢',
       color: 'from-green-500 to-green-600',
       // BHIM specific scheme
-      link: `bhim://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+      link: `bhim://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
     },
     {
       id: 'amazonpay',
@@ -194,7 +198,7 @@ const Payment = () => {
       icon: '🟠',
       color: 'from-orange-500 to-orange-600',
       // Amazon Pay specific scheme
-      link: `amazonpay://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+      link: `amazonpay://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
     }
   ];
 
@@ -427,15 +431,25 @@ const Payment = () => {
                     }, 2000);
                   } catch (error) {
                     console.error(`Error opening ${app.name}:`, error);
-                    toast.error(`Failed to open ${app.name}. Please scan QR code.`);
+                    toast.error(`Failed to open ${app.name}. Try another app or scan QR.`);
                   }
                 }}
-                className={`bg-gradient-to-br ${app.color} text-white p-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex flex-col items-center gap-2`}
+                className={`bg-gradient-to-br ${app.color} text-white p-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex flex-col items-center gap-2 relative`}
               >
                 <span className="text-3xl">{app.icon}</span>
                 <span>{app.name}</span>
+                {app.note && (
+                  <span className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-900 text-[8px] px-1 rounded">⚠️</span>
+                )}
               </button>
             ))}
+          </div>
+          
+          {/* Bank Limit Warning */}
+          <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+            <p className="text-[10px] text-yellow-800 dark:text-yellow-200 text-center">
+              💡 If payment fails due to bank limit, try PhonePe or Paytm
+            </p>
           </div>
           <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
             Tap any app to pay directly
