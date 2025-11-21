@@ -218,3 +218,4 @@ sudo tail -50 /var/log/nginx/error.log
 3. **Check backend port** - જો backend જુદા port પર હોય તો config માં update કરો
 
 
+

@@ -4,9 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin, Copy, Share2, Download } from 'lucide-react';
 import { Loader } from '../components/ui/Loader';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const Payment = () => {
   const navigate = useNavigate();
@@ -146,61 +146,86 @@ const Payment = () => {
   const totalAmount = loan ? (loan.totalPaymentAmount || 
     (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149.50)) : 0;
 
-  // Generate UPI payment strings (app-specific deep links work better than generic upi://pay)
+  // Generate UPI payment string for QR code
   const loanId = loan?.loanId || loan?._id?.slice(-8);
   const siteName = 'GrowLoan';
-  const txnId = Math.floor(Math.random() * 10000000000);
-  
-  // Standard UPI string for QR code (generic - works in QR only)
-  const upiPaymentString = `upi://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`;
-  
-  // Format amount to 2 decimal places for UPI (required format)
   const formattedAmount = totalAmount.toFixed(2);
   
-  // App-specific deep links (these bypass "merchant link" restrictions)
-  const paymentApps = [
-    {
-      id: 'phonepe',
-      name: 'PhonePe',
-      icon: '🟣',
-      color: 'from-purple-500 to-purple-600',
-      // PhonePe specific scheme (try first - often has higher limits)
-      link: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
-    },
-    {
-      id: 'paytm',
-      name: 'Paytm',
-      icon: '🔷',
-      color: 'from-blue-600 to-blue-700',
-      // Paytm specific scheme
-      link: `paytmmp://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
-    },
-    {
-      id: 'gpay',
-      name: 'Google Pay',
-      icon: '🔵',
-      color: 'from-blue-500 to-blue-600',
-      // GPay specific scheme (may have bank limits)
-      link: `tez://upi/pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`,
-      note: 'Check your bank UPI limit'
-    },
-    {
-      id: 'bhim',
-      name: 'BHIM UPI',
-      icon: '🟢',
-      color: 'from-green-500 to-green-600',
-      // BHIM specific scheme
-      link: `bhim://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
-    },
-    {
-      id: 'amazonpay',
-      name: 'Amazon Pay',
-      icon: '🟠',
-      color: 'from-orange-500 to-orange-600',
-      // Amazon Pay specific scheme
-      link: `amazonpay://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment`
+  // Standard UPI string for QR code
+  const upiPaymentString = `upi://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment&tr=${loanId}`;
+  
+  // Copy UPI ID to clipboard
+  const copyUpiId = () => {
+    navigator.clipboard.writeText(upiId).then(() => {
+      toast.success('UPI ID copied to clipboard!');
+    }).catch(() => {
+      toast.error('Failed to copy UPI ID');
+    });
+  };
+  
+  // Download QR Code
+  const downloadQR = () => {
+    try {
+      const canvas = document.querySelector('canvas');
+      if (canvas) {
+        const url = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `GrowLoan-Payment-QR-${loanId}.png`;
+        link.href = url;
+        link.click();
+        toast.success('QR Code downloaded successfully!');
+      } else {
+        toast.error('QR Code not found');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download QR Code');
     }
-  ];
+  };
+  
+  // Share QR Code
+  const shareQR = async () => {
+    try {
+      const canvas = document.querySelector('canvas');
+      if (!canvas) {
+        toast.error('QR Code not found');
+        return;
+      }
+      
+      // Check if Web Share API with files is supported
+      if (navigator.share && navigator.canShare) {
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], `GrowLoan-Payment-${loanId}.png`, { type: 'image/png' });
+          const shareData = {
+            title: 'GrowLoan Payment',
+            text: `Pay ₹${formattedAmount} to ${upiId}\nLoan ID: GL-${loanId}`,
+            files: [file]
+          };
+          
+          if (navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+            toast.success('QR Code shared successfully!');
+          } else {
+            // Fallback: share text only
+            await navigator.share({
+              title: 'GrowLoan Payment',
+              text: `Pay ₹${formattedAmount} via UPI\nUPI ID: ${upiId}\nAmount: ₹${formattedAmount}\nLoan ID: GL-${loanId}`
+            });
+            toast.success('Payment details shared!');
+          }
+        });
+      } else {
+        // Fallback: Copy UPI string to clipboard
+        navigator.clipboard.writeText(`UPI Payment\nUPI ID: ${upiId}\nAmount: ₹${formattedAmount}\nLoan ID: GL-${loanId}`);
+        toast.success('Payment details copied! Share manually.');
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      if (error.name !== 'AbortError') {
+        toast.error('Failed to share QR Code');
+      }
+    }
+  };
 
 
 
@@ -382,12 +407,43 @@ const Payment = () => {
           </div>
         </div>
 
-        {/* QR Code Section - At Top */}
+        {/* Payment Instructions */}
+        <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-4 mb-4 border border-purple-200 dark:border-purple-800">
+          <h3 className="text-center font-bold text-purple-800 dark:text-purple-200 mb-3 flex items-center justify-center gap-2">
+            <span className="text-lg">📱</span>
+            <span>How to Pay</span>
+          </h3>
+          <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+            <div className="flex items-start gap-2">
+              <span className="text-purple-600 font-bold">1.</span>
+              <span><strong>Scan QR Code</strong> - Open any UPI app and scan the QR code below</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-purple-600 font-bold">2.</span>
+              <span><strong>Use UPI ID</strong> - Manually enter UPI ID and amount in your UPI app</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-purple-600 font-bold">3.</span>
+              <span><strong>Share QR</strong> - Use Share button to send QR to your payment app</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-700">
+            <p className="text-xs text-center text-purple-700 dark:text-purple-300">
+              ✓ After payment, click <strong>"Verify Payment"</strong> button below
+            </p>
+          </div>
+        </div>
+
+        {/* QR Code Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-4 shadow-lg">
-          <h3 className="text-center font-semibold text-gray-800 dark:text-gray-200 mb-4">Scan QR Code to Pay</h3>
-          <div className="flex justify-center">
-            <div className="bg-white p-4 rounded-xl border-2 border-purple-200">
-              <QRCodeSVG
+          <h3 className="text-center font-semibold text-gray-800 dark:text-gray-200 mb-4 text-lg">
+            Scan QR Code to Pay
+          </h3>
+          
+          {/* QR Code */}
+          <div className="flex justify-center mb-4">
+            <div className="bg-white p-4 rounded-xl border-2 border-purple-200 shadow-md">
+              <QRCodeCanvas
                 value={upiPaymentString}
                 size={qrSize}
                 level="H"
@@ -397,10 +453,41 @@ const Payment = () => {
               />
             </div>
           </div>
-          <div className="mt-4 text-center">
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">UPI ID</p>
-            <p className="text-sm font-mono font-semibold text-purple-600">{upiId}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Amount: ₹{totalAmount.toLocaleString()}</p>
+          
+          {/* Share & Download Buttons */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              onClick={shareQR}
+              className="bg-gradient-to-br from-green-500 to-green-600 text-white py-3 px-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <Share2 className="w-5 h-5" />
+              <span>Share QR</span>
+            </button>
+            <button
+              onClick={downloadQR}
+              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white py-3 px-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              <span>Download</span>
+            </button>
+          </div>
+          
+          {/* UPI ID with Copy Button */}
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 text-center">UPI ID</p>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-sm font-mono font-semibold text-purple-600 dark:text-purple-400">{upiId}</p>
+              <button
+                onClick={copyUpiId}
+                className="p-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 rounded-lg transition-all active:scale-95"
+                title="Copy UPI ID"
+              >
+                <Copy className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+              Amount: <span className="font-bold text-green-600 dark:text-green-400">₹{formattedAmount}</span>
+            </p>
           </div>
           
           {/* Payment Safety Info */}
@@ -409,51 +496,6 @@ const Payment = () => {
               ✓ Safe & Secure Payment • NPCI Approved Format
             </p>
           </div>
-        </div>
-
-        {/* Payment Apps - Direct Deep Links */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
-          <h3 className="text-center font-semibold text-gray-800 dark:text-gray-200 mb-4 text-sm md:text-base">
-            Pay Using UPI App
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {paymentApps.map((app) => (
-              <button
-                key={app.id}
-                onClick={() => {
-                  try {
-                    toast.info(`Opening ${app.name}...`);
-                    window.location.href = app.link;
-                    
-                    // Show verify message after 2 seconds
-                    setTimeout(() => {
-                      toast.success('Complete payment in app, then click "Verify Payment"');
-                    }, 2000);
-                  } catch (error) {
-                    console.error(`Error opening ${app.name}:`, error);
-                    toast.error(`Failed to open ${app.name}. Try another app or scan QR.`);
-                  }
-                }}
-                className={`bg-gradient-to-br ${app.color} text-white p-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex flex-col items-center gap-2 relative`}
-              >
-                <span className="text-3xl">{app.icon}</span>
-                <span>{app.name}</span>
-                {app.note && (
-                  <span className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-900 text-[8px] px-1 rounded">⚠️</span>
-                )}
-              </button>
-            ))}
-          </div>
-          
-          {/* Bank Limit Warning */}
-          <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
-            <p className="text-[10px] text-yellow-800 dark:text-yellow-200 text-center">
-              💡 If payment fails due to bank limit, try PhonePe or Paytm
-            </p>
-          </div>
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
-            Tap any app to pay directly
-          </p>
         </div>
 
         {/* Verify Payment Button - Always Available */}
