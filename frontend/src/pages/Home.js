@@ -18,7 +18,7 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [validating, setValidating] = useState(false);
-  const [validationTime, setValidationTime] = useState(60);
+  const [validationTime, setValidationTime] = useState(30);
   const [userLoans, setUserLoans] = useState([]);
   const [offeredAmount, setOfferedAmount] = useState(null);
   const [hasLoans, setHasLoans] = useState(false);
@@ -41,7 +41,7 @@ const Home = () => {
         // Check if coming from profile setup with validation state
         if (location.state?.validating && location.state?.loanId) {
           setValidating(true);
-          setValidationTime(60);
+          setValidationTime(30);
           // Fetch the loan to set as current
           await fetchLoanById(location.state.loanId);
         }
@@ -61,14 +61,15 @@ const Home = () => {
       interval = setInterval(() => {
         setValidationTime((time) => {
           if (time <= 1) {
-            setValidating(false);
+            // Auto-refresh after 30 seconds
             checkLoanStatus();
-            return 0;
+            // If still validating, restart timer for another 30 seconds
+            return 30;
           }
           return time - 1;
         });
       }, 1000);
-    } else if (validationTime === 0) {
+    } else if (validationTime === 0 && validating) {
       checkLoanStatus();
     }
     return () => {
@@ -175,14 +176,23 @@ const Home = () => {
       });
       const loan = response.data.loan;
       setCurrentLoan(loan);
-      setValidating(false); // Stop validation loader
-      setValidationTime(0); // Reset timer
       await fetchUser(); // Refresh user data
-      if (loan.status === 'approved') {
-        toast.success('🎉 Loan approved! You can now proceed with payment.');
+      
+      // If loan is still validating, keep timer running
+      if (loan.status === 'validating') {
+        setValidating(true);
+        setValidationTime(30); // Restart timer for another 30 seconds
+      } else {
+        setValidating(false); // Stop validation loader
+        setValidationTime(0); // Reset timer
+        if (loan.status === 'approved') {
+          toast.success('🎉 Loan approved! You can now proceed with payment.');
+        }
       }
     } catch (error) {
       console.error('Error checking loan status:', error);
+      // If error, restart timer to keep checking
+      setValidationTime(30);
       // Don't show error toast - handled by interceptor
     }
   };
@@ -282,8 +292,8 @@ const Home = () => {
     try {
       await axios.post(`/loans/${currentLoan.id}/validate`);
       setValidating(true);
-      setValidationTime(60);
-      toast.info('Validation started. Please wait 1 minute...');
+      setValidationTime(30);
+      toast.info('Validation started. Auto-refreshing in 30 seconds...');
     } catch (error) {
       if (error.response?.status === 401) {
         toast.error('Session expired. Please login again.');
@@ -622,35 +632,93 @@ const Home = () => {
                     className="w-full gradient-primary text-primary-foreground h-12 md:h-14 text-base md:text-lg rounded-xl font-semibold"
                     disabled={loading}
                   >
-                    Start Validation (1 min)
+                    Start Validation (30 sec)
                   </Button>
               )}
 
                 {(validating || currentLoan.status === 'validating') && (
                   <div className="text-center py-8 md:py-12">
-                    <div className="relative mx-auto mb-4 md:mb-6 w-16 h-16 md:w-20 md:h-20">
+                    {/* Enhanced Spinner with Progress Ring */}
+                    <div className="relative mx-auto mb-6 md:mb-8 w-24 h-24 md:w-28 md:h-28">
+                      {/* Progress Ring - Outer Circle */}
+                      <svg className="absolute inset-0 w-24 h-24 md:w-28 md:h-28 transform -rotate-90" viewBox="0 0 100 100">
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="45"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          className="text-primary/20"
+                        />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="45"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          className="text-primary transition-all duration-300"
+                          strokeDasharray={`${2 * Math.PI * 45}`}
+                          strokeDashoffset={`${2 * Math.PI * 45 * (1 - (30 - validationTime) / 30)}`}
+                        />
+                      </svg>
                       {/* Main Spinner */}
-                      <div className="absolute inset-0 w-16 h-16 md:w-20 md:h-20 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                      <div className="absolute inset-0 w-24 h-24 md:w-28 md:h-28 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                       {/* Pulsing Ring */}
-                      <div className="absolute inset-0 w-16 h-16 md:w-20 md:h-20 border-4 border-primary/30 rounded-full animate-ping" />
-                      {/* Inner Glow */}
-                      <div className="absolute inset-2 w-12 h-12 md:w-16 md:h-16 bg-primary/10 rounded-full animate-pulse" />
+                      <div className="absolute inset-0 w-24 h-24 md:w-28 md:h-28 border-4 border-primary/30 rounded-full animate-ping" />
+                      {/* Inner Glow with Icon */}
+                      <div className="absolute inset-3 md:inset-4 w-18 h-18 md:w-20 md:h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full animate-pulse flex items-center justify-center">
+                        <div className="w-8 h-8 md:w-10 md:h-10 bg-primary/30 rounded-full flex items-center justify-center">
+                          <div className="w-4 h-4 md:w-5 md:h-5 bg-primary rounded-full animate-pulse" />
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2 md:space-y-3">
-                      <p className="text-lg md:text-xl font-bold text-gradient">Validating your documents...</p>
-                      <p className="text-xs md:text-sm text-muted-foreground">Please wait while we verify your information</p>
+                    
+                    <div className="space-y-3 md:space-y-4">
+                      <div>
+                        <p className="text-xl md:text-2xl font-bold text-gradient mb-2">
+                          Validating your documents...
+                        </p>
+                        <p className="text-sm md:text-base text-muted-foreground">
+                          Please wait while we verify your information
+                        </p>
+                      </div>
+                      
+                      {/* Enhanced Timer Display */}
                       {validationTime > 0 && (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <p className="text-base font-semibold text-primary">Time remaining: {validationTime}s</p>
-                          <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
+                            <div className="flex gap-1">
+                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
+                            <p className="text-base md:text-lg font-bold text-primary">
+                              {validationTime}s remaining
+                            </p>
+                          </div>
+                          {/* Progress Bar */}
+                          <div className="w-full max-w-xs h-2 bg-primary/10 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-1000 ease-linear"
+                              style={{ width: `${((30 - validationTime) / 30) * 100}%` }}
+                            />
+                          </div>
                         </div>
                       )}
+                      
                       {validationTime === 0 && (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                          <p className="text-base font-semibold text-primary">Checking approval status...</p>
-                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
+                          <div className="flex gap-1">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                          </div>
+                          <p className="text-base md:text-lg font-semibold text-primary">
+                            Refreshing status...
+                          </p>
                         </div>
                       )}
                     </div>
