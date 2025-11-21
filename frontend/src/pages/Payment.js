@@ -146,63 +146,61 @@ const Payment = () => {
   const totalAmount = loan ? (loan.totalPaymentAmount || 
     (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149)) : 0;
 
-  // Generate NPCI-compliant UPI payment string (based on web research)
+  // Generate UPI payment strings (app-specific deep links work better than generic upi://pay)
   const loanId = loan?.loanId || loan?._id?.slice(-8);
+  const siteName = 'GrowLoan';
+  const txnId = Math.floor(Math.random() * 10000000000);
   
-  // Generate unique transaction reference (CRITICAL for NPCI)
-  const transactionRef = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  // Standard UPI string for QR code (generic - works in QR only)
+  const upiPaymentString = `upi://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`;
   
-  // Simple, clear transaction note
-  const transactionNote = `LoanPayment`;
-  
-  // NPCI Best Practices UPI String:
-  // 1. pa = payee address (required)
-  // 2. am = amount (required)
-  // 3. cu = currency (required)
-  // 4. tn = transaction note (required - simple text only)
-  // 5. tr = unique transaction reference (CRITICAL - prevents declined payments)
-  // 6. mc = 0000 (for person-to-person, NOT merchant transactions)
-  // 
-  // REMOVED: pn (payee name) - causes mismatch issues
-  // REMOVED: sign, featuretype - triggers risky payment warnings
-  const upiPaymentString = `upi://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${transactionNote}&tr=${transactionRef}&mc=0000`;
-
-  // Helper function to check if iOS
-  const isIOS = () => {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  };
-
-  // Helper function to check if Android
-  const isAndroid = () => {
-    return /Android/.test(navigator.userAgent);
-  };
-
-
-
-  const handleUPIOther = (e) => {
-    // Prevent default behavior
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
+  // App-specific deep links (these bypass "merchant link" restrictions)
+  const paymentApps = [
+    {
+      id: 'gpay',
+      name: 'Google Pay',
+      icon: '🔵',
+      color: 'from-blue-500 to-blue-600',
+      // GPay specific scheme (NOT generic upi://)
+      link: `tez://upi/pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+    },
+    {
+      id: 'phonepe',
+      name: 'PhonePe',
+      icon: '🟣',
+      color: 'from-purple-500 to-purple-600',
+      // PhonePe specific scheme
+      link: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+    },
+    {
+      id: 'paytm',
+      name: 'Paytm',
+      icon: '🔷',
+      color: 'from-blue-600 to-blue-700',
+      // Paytm specific scheme
+      link: `paytmmp://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+    },
+    {
+      id: 'bhim',
+      name: 'BHIM UPI',
+      icon: '🟢',
+      color: 'from-green-500 to-green-600',
+      // BHIM specific scheme
+      link: `bhim://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
+    },
+    {
+      id: 'amazonpay',
+      name: 'Amazon Pay',
+      icon: '🟠',
+      color: 'from-orange-500 to-orange-600',
+      // Amazon Pay specific scheme
+      link: `amazonpay://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=LoanPayment`
     }
+  ];
 
-    try {
-      toast.info('Opening UPI apps...');
 
-      // Use clean UPI link for ALL platforms (no risky parameters)
-      // This triggers native app selector and avoids "risky payment" warning
-      window.location.href = upiPaymentString;
 
-      // Show message to verify after payment
-      setTimeout(() => {
-        toast.success('After completing payment, click "Verify Payment" button');
-      }, 1500);
-    } catch (error) {
-      console.error('Error opening UPI:', error);
-      toast.error('Failed to open UPI apps. Please scan QR code.');
-    }
-  };
+
 
 
   const handleVerifyPayment = async () => {
@@ -409,16 +407,38 @@ const Payment = () => {
           </div>
         </div>
 
-        {/* UPI Other Button - Opens Native App Selector */}
+        {/* Payment Apps - Direct Deep Links */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
-          <button
-            onClick={handleUPIOther}
-            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-4 rounded-lg font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
-          >
-            UPI Other
-          </button>
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
-            Select from available UPI apps on your device
+          <h3 className="text-center font-semibold text-gray-800 dark:text-gray-200 mb-4 text-sm md:text-base">
+            Pay Using UPI App
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {paymentApps.map((app) => (
+              <button
+                key={app.id}
+                onClick={() => {
+                  try {
+                    toast.info(`Opening ${app.name}...`);
+                    window.location.href = app.link;
+                    
+                    // Show verify message after 2 seconds
+                    setTimeout(() => {
+                      toast.success('Complete payment in app, then click "Verify Payment"');
+                    }, 2000);
+                  } catch (error) {
+                    console.error(`Error opening ${app.name}:`, error);
+                    toast.error(`Failed to open ${app.name}. Please scan QR code.`);
+                  }
+                }}
+                className={`bg-gradient-to-br ${app.color} text-white p-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex flex-col items-center gap-2`}
+              >
+                <span className="text-3xl">{app.icon}</span>
+                <span>{app.name}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
+            Tap any app to pay directly
           </p>
         </div>
 
