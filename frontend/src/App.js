@@ -31,7 +31,7 @@ const ProfileCheckRoute = ({ children }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-    return <div className="loading-container">Loading...</div>;
+    return <Loader fullScreen text="Loading..." size="lg" />;
   }
   
   if (!user) {

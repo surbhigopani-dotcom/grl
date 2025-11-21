@@ -3,15 +3,7 @@
   overflow-x: hidden;
 }
 
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  font-size: 1.5rem;
-  color: white;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
+/* Loading container removed - using Loader component instead */
 
 /* Global responsive utilities */
 * {

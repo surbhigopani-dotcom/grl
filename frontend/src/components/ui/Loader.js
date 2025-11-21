@@ -9,12 +9,12 @@ export const Loader = ({ size = 'md', text, fullScreen = false }) => {
   };
 
   const containerClass = fullScreen
-    ? 'fixed inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/5 flex flex-col items-center justify-center z-50 backdrop-blur-sm'
+    ? 'fixed inset-0 bg-gradient-to-br from-primary/10 via-background to-primary/10 flex flex-col items-center justify-center z-50 backdrop-blur-sm'
     : 'flex flex-col items-center justify-center py-8';
 
   return (
     <div className={containerClass}>
-      <div className="text-center space-y-6">
+      <div className="text-center space-y-4 md:space-y-6 px-4">
         {/* Animated Spinner with Multiple Rings */}
         <div className="relative mx-auto">
           {/* Main Spinning Ring */}
@@ -30,20 +30,20 @@ export const Loader = ({ size = 'md', text, fullScreen = false }) => {
           />
           {/* Inner Glow */}
           <div
-            className={`absolute inset-2 ${size === 'lg' ? 'w-16 h-16' : size === 'xl' ? 'w-20 h-20' : 'w-8 h-8'} bg-primary/10 rounded-full animate-pulse`}
+            className={`absolute inset-2 ${size === 'lg' ? 'w-16 h-16' : size === 'xl' ? 'w-20 h-20' : size === 'md' ? 'w-8 h-8' : 'w-4 h-4'} bg-primary/10 rounded-full animate-pulse`}
           />
         </div>
         
         {/* Loading Text with Dots */}
         {text && (
-          <div className="space-y-3">
-            <p className="text-lg md:text-xl font-bold text-gradient animate-pulse">
+          <div className="space-y-2 md:space-y-3">
+            <p className="text-base md:text-lg font-semibold text-foreground">
               {text}
             </p>
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex items-center justify-center gap-1.5 md:gap-2">
+              <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </div>
         )}
