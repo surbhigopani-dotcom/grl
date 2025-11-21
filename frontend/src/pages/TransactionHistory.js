@@ -207,11 +207,11 @@ const TransactionHistory = () => {
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4 md:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Your Transactions</h1>
-          <p className="text-muted-foreground">View all your payment history and loan transactions</p>
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-4xl font-bold mb-2">Your Transactions</h1>
+          <p className="text-sm md:text-base text-muted-foreground">View all your payment history and loan transactions</p>
         </div>
 
         {/* Transactions List */}

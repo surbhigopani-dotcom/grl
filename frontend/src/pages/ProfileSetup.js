@@ -140,8 +140,8 @@ const ProfileSetup = () => {
       <div className="container mx-auto max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">Complete Your Profile</h1>
-          <p className="text-muted-foreground text-lg">Help us understand you better to offer the best loan</p>
+          <h1 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4">Complete Your Profile</h1>
+          <p className="text-muted-foreground text-sm md:text-lg">Help us understand you better to offer the best loan</p>
         </div>
 
         {/* Step Indicator */}

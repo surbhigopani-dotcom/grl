@@ -284,7 +284,7 @@ const Payment = () => {
         <div className="max-w-2xl mx-auto">
           {/* Payment Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2 text-gradient">Complete Payment</h1>
+            <h1 className="text-2xl md:text-4xl font-bold mb-2 text-gradient">Complete Payment</h1>
             <p className="text-muted-foreground">Loan ID: GL-{loan.loanId || loan._id?.slice(-8)}</p>
           </div>
 

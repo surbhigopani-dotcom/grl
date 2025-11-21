@@ -523,7 +523,7 @@ const Home = () => {
         <div className="gradient-hero rounded-2xl md:rounded-3xl p-6 md:p-12 text-white text-center mb-4 md:mb-8 shadow-xl md:shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer"></div>
           <div className="relative z-10">
-            <h1 className="text-2xl md:text-5xl font-bold mb-2 md:mb-4 drop-shadow-lg">
+            <h1 className="text-xl md:text-5xl font-bold mb-2 md:mb-4 drop-shadow-lg">
               Welcome back, {user?.name || 'User'}! 👋
             </h1>
             <p className="text-sm md:text-xl text-white/95">
