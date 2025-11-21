@@ -705,21 +705,21 @@ const Home = () => {
                       </div>
                     )}
                     {currentLoan.status === 'payment_validation' && (
-                      <div className="bg-warning/20 border-2 border-warning rounded-2xl p-6 animate-pulse">
+                      <div className="bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-300 dark:border-blue-700 rounded-2xl p-5 md:p-6">
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="w-12 h-12 bg-warning/30 rounded-full flex items-center justify-center">
-                            <Clock className="w-6 h-6 text-warning" />
+                          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                            <Clock className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-warning mb-1">Transaction Under Review</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Your payment is being verified by our team. Please wait for confirmation.
+                            <h3 className="text-base md:text-lg font-bold text-blue-700 dark:text-blue-300 mb-1">Payment Under Verification</h3>
+                            <p className="text-xs md:text-sm text-muted-foreground">
+                              Your payment has been received and is being verified. This usually takes a few minutes.
                             </p>
                           </div>
                         </div>
-                        <div className="bg-warning/10 rounded-xl p-4 mt-4">
-                          <p className="text-sm font-medium text-warning-foreground">
-                            ⚠️ Transaction is under review. We will notify you once the verification is complete.
+                        <div className="bg-blue-100/50 dark:bg-blue-900/30 rounded-xl p-3 md:p-4 mt-4">
+                          <p className="text-xs md:text-sm font-medium text-blue-800 dark:text-blue-200">
+                            ✅ Payment Accepted: Your payment of ₹{currentLoan.totalPaymentAmount?.toLocaleString() || 'N/A'} has been submitted successfully. Our team is verifying the transaction. You will be notified once verification is complete.
                           </p>
                         </div>
                       </div>
