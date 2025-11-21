@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin, ChevronDown } from 'lucide-react';
 import { Loader } from '../components/ui/Loader';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -21,6 +21,7 @@ const Payment = () => {
   const [verifying, setVerifying] = useState(false);
   const [paymentVerified, setPaymentVerified] = useState(false);
   const [qrSize, setQrSize] = useState(200);
+  const [showAppList, setShowAppList] = useState(false);
 
   useEffect(() => {
     // Set QR code size based on screen width
@@ -611,149 +612,47 @@ const Payment = () => {
           </div>
         </div>
 
-        {/* Preferred Mode Section */}
+        {/* UPI Other Button - Single Button with App List */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Preferred Mode</h3>
-          
-          {/* Google Pay */}
-          <div className="mb-3">
-            <div 
-              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedMethod?.id === 'gpay' 
-                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
-                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
-              }`}
-              onClick={() => handlePaymentMethodSelect('gpay')}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
-                  G
-                </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200">Google Pay</span>
-              </div>
-              {selectedMethod?.id === 'gpay' && (
-                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                </div>
-              )}
-            </div>
-            {selectedMethod?.id === 'gpay' && (
-              <button
-                onClick={() => handlePayNow(selectedMethod)}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Pay using Google Pay
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => setShowAppList(!showAppList)}
+            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-4 rounded-lg font-semibold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+          >
+            <span>UPI Other</span>
+            <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${showAppList ? 'rotate-180' : ''}`} />
+          </button>
 
-          {/* Paytm */}
-          <div className="mb-3">
-            <div 
-              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedMethod?.id === 'paytm' 
-                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
-                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
-              }`}
-              onClick={() => handlePaymentMethodSelect('paytm')}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold">
-                  P
-                </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200">Paytm</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-green-600 font-semibold">{selectedMethod?.offer}</span>
-                {selectedMethod?.id === 'paytm' && (
-                  <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-white" />
+          {/* Payment Apps List (shown when button clicked) */}
+          {showAppList && (
+            <div className="mt-4 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              {paymentMethods.map((method) => (
+                <div
+                  key={method.id}
+                  onClick={() => {
+                    setShowAppList(false);
+                    handlePayNow(method);
+                  }}
+                  className="flex items-center justify-between p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 cursor-pointer transition-all active:scale-95"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${method.color} flex items-center justify-center text-white font-bold text-lg shadow-md`}>
+                      {method.logo || method.icon}
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-800 dark:text-gray-200 block">{method.name}</span>
+                      {method.offer && (
+                        <span className="text-xs text-green-600 font-semibold">{method.offer}</span>
+                      )}
+                      {method.note && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 block">{method.note}</span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                  <ChevronDown className="w-5 h-5 text-gray-400 rotate-[-90deg]" />
+                </div>
+              ))}
             </div>
-            {selectedMethod?.id === 'paytm' && (
-              <button
-                onClick={() => handlePayNow(selectedMethod)}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Pay using Paytm
-              </button>
-            )}
-          </div>
-
-        </div>
-
-        {/* UPI Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">UPI</h3>
-          
-          {/* PhonePe */}
-          <div className="mb-3">
-            <div 
-              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedMethod?.id === 'phonepe' 
-                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
-                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
-              }`}
-              onClick={() => handlePaymentMethodSelect('phonepe')}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                  पे
-                </div>
-                <div>
-                  <span className="font-medium text-gray-800 dark:text-gray-200 block">PhonePe UPI</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Low success rate currently</span>
-                </div>
-              </div>
-              {selectedMethod?.id === 'phonepe' && (
-                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                </div>
-              )}
-            </div>
-            {selectedMethod?.id === 'phonepe' && (
-              <button
-                onClick={() => handlePayNow(selectedMethod)}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Pay using PhonePe
-              </button>
-            )}
-          </div>
-
-          {/* CRED pay */}
-          <div className="mb-3">
-            <div 
-              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedMethod?.id === 'cred' 
-                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
-                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
-              }`}
-              onClick={() => handlePaymentMethodSelect('cred')}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-xs font-bold">
-                  CRED
-                </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200">CRED pay</span>
-              </div>
-              {selectedMethod?.id === 'cred' && (
-                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                </div>
-              )}
-            </div>
-            {selectedMethod?.id === 'cred' && (
-              <button
-                onClick={() => handlePayNow(selectedMethod)}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Pay using CRED
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Verify Payment Button */}
