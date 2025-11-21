@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -41,7 +41,6 @@ const Home = () => {
         // Check if coming from profile setup with validation state
         if (location.state?.validating && location.state?.loanId) {
           setValidating(true);
-          setValidationTime(30);
           // Fetch the loan to set as current
           await fetchLoanById(location.state.loanId);
         }
@@ -55,27 +54,74 @@ const Home = () => {
     initializeData();
   }, []);
 
-  useEffect(() => {
-    let interval = null;
-    if (validating && validationTime > 0) {
-      interval = setInterval(() => {
-        setValidationTime((time) => {
-          if (time <= 1) {
-            // Auto-refresh after 30 seconds
-            checkLoanStatus();
-            // If still validating, restart timer for another 30 seconds
-            return 30;
-          }
-          return time - 1;
-        });
-      }, 1000);
-    } else if (validationTime === 0 && validating) {
-      checkLoanStatus();
+  const checkLoanStatus = useCallback(async () => {
+    if (!currentLoan) return;
+    
+    // Ensure token is set before making request
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return; // Silently fail if no token
     }
+    if (!axios.defaults.headers.common['Authorization']) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+    
+    try {
+      const response = await axios.get(`/loans/${currentLoan.id || currentLoan._id}/status`, {
+        skipErrorToast: true // Don't show duplicate error toasts
+      });
+      const loan = response.data.loan;
+      setCurrentLoan(loan);
+      
+      // Refresh user data if fetchUser is available
+      if (fetchUser) {
+        await fetchUser();
+      }
+      
+      // If loan is still validating, keep checking
+      if (loan.status === 'validating') {
+        setValidating(true);
+        // Status will auto-refresh every 30 seconds via useEffect
+      } else {
+        setValidating(false); // Stop validation loader
+        if (loan.status === 'approved') {
+          toast.success('🎉 Loan approved! You can now proceed with payment.');
+        } else if (loan.status === 'rejected') {
+          toast.info('Loan application status updated.');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking loan status:', error);
+      // Don't show error toast - handled by interceptor
+      // Status will continue to auto-refresh via useEffect
+    }
+  }, [currentLoan?.id, currentLoan?._id]);
+
+  useEffect(() => {
+    let statusCheckInterval = null;
+    let timeout = null;
+    
+    if (validating || currentLoan?.status === 'validating') {
+      // Auto-refresh status every 30 seconds
+      statusCheckInterval = setInterval(() => {
+        if (currentLoan?.id || currentLoan?._id) {
+          checkLoanStatus();
+        }
+      }, 30000); // 30 seconds
+      
+      // Also check immediately after 30 seconds
+      timeout = setTimeout(() => {
+        if (currentLoan?.id || currentLoan?._id) {
+          checkLoanStatus();
+        }
+      }, 30000);
+    }
+    
     return () => {
-      if (interval) clearInterval(interval);
+      if (statusCheckInterval) clearInterval(statusCheckInterval);
+      if (timeout) clearTimeout(timeout);
     };
-  }, [validating, validationTime]);
+  }, [validating, currentLoan?.status, currentLoan?.id, checkLoanStatus]);
 
   const fetchLoanById = async (loanId) => {
     try {
@@ -155,45 +201,6 @@ const Home = () => {
     } catch (error) {
       console.error('Error fetching config:', error);
       // Don't show error toast for config fetch failures
-    }
-  };
-
-  const checkLoanStatus = async () => {
-    if (!currentLoan) return;
-    
-    // Ensure token is set before making request
-    const token = localStorage.getItem('token');
-    if (!token) {
-      return; // Silently fail if no token
-    }
-    if (!axios.defaults.headers.common['Authorization']) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-    
-    try {
-      const response = await axios.get(`/loans/${currentLoan.id || currentLoan._id}/status`, {
-        skipErrorToast: true // Don't show duplicate error toasts
-      });
-      const loan = response.data.loan;
-      setCurrentLoan(loan);
-      await fetchUser(); // Refresh user data
-      
-      // If loan is still validating, keep timer running
-      if (loan.status === 'validating') {
-        setValidating(true);
-        setValidationTime(30); // Restart timer for another 30 seconds
-      } else {
-        setValidating(false); // Stop validation loader
-        setValidationTime(0); // Reset timer
-        if (loan.status === 'approved') {
-          toast.success('🎉 Loan approved! You can now proceed with payment.');
-        }
-      }
-    } catch (error) {
-      console.error('Error checking loan status:', error);
-      // If error, restart timer to keep checking
-      setValidationTime(30);
-      // Don't show error toast - handled by interceptor
     }
   };
 
@@ -292,8 +299,7 @@ const Home = () => {
     try {
       await axios.post(`/loans/${currentLoan.id}/validate`);
       setValidating(true);
-      setValidationTime(30);
-      toast.info('Validation started. Auto-refreshing in 30 seconds...');
+      toast.info('Validation started. Status will update automatically...');
     } catch (error) {
       if (error.response?.status === 401) {
         toast.error('Session expired. Please login again.');
@@ -632,38 +638,14 @@ const Home = () => {
                     className="w-full gradient-primary text-primary-foreground h-12 md:h-14 text-base md:text-lg rounded-xl font-semibold"
                     disabled={loading}
                   >
-                    Start Validation (30 sec)
+                    Start Validation
                   </Button>
               )}
 
                 {(validating || currentLoan.status === 'validating') && (
                   <div className="text-center py-8 md:py-12">
-                    {/* Enhanced Spinner with Progress Ring */}
+                    {/* Enhanced Spinner */}
                     <div className="relative mx-auto mb-6 md:mb-8 w-24 h-24 md:w-28 md:h-28">
-                      {/* Progress Ring - Outer Circle */}
-                      <svg className="absolute inset-0 w-24 h-24 md:w-28 md:h-28 transform -rotate-90" viewBox="0 0 100 100">
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="45"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          className="text-primary/20"
-                        />
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="45"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          strokeLinecap="round"
-                          className="text-primary transition-all duration-300"
-                          strokeDasharray={`${2 * Math.PI * 45}`}
-                          strokeDashoffset={`${2 * Math.PI * 45 * (1 - (30 - validationTime) / 30)}`}
-                        />
-                      </svg>
                       {/* Main Spinner */}
                       <div className="absolute inset-0 w-24 h-24 md:w-28 md:h-28 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                       {/* Pulsing Ring */}
@@ -676,51 +658,26 @@ const Home = () => {
                       </div>
                     </div>
                     
-                    <div className="space-y-3 md:space-y-4">
+                    <div className="space-y-4 md:space-y-5">
                       <div>
-                        <p className="text-xl md:text-2xl font-bold text-gradient mb-2">
+                        <p className="text-xl md:text-2xl font-bold text-gradient mb-3">
                           Validating your documents...
                         </p>
-                        <p className="text-sm md:text-base text-muted-foreground">
-                          Please wait while we verify your information
-                        </p>
-                      </div>
-                      
-                      {/* Enhanced Timer Display */}
-                      {validationTime > 0 && (
-                        <div className="flex flex-col items-center gap-3">
-                          <div className="flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
-                            <div className="flex gap-1">
-                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                            </div>
-                            <p className="text-base md:text-lg font-bold text-primary">
-                              {validationTime}s remaining
-                            </p>
-                          </div>
-                          {/* Progress Bar */}
-                          <div className="w-full max-w-xs h-2 bg-primary/10 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-1000 ease-linear"
-                              style={{ width: `${((30 - validationTime) / 30) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      
-                      {validationTime === 0 && (
-                        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
+                        <div className="flex items-center justify-center gap-2 px-6 py-3 bg-primary/10 rounded-full border border-primary/20 inline-flex">
                           <div className="flex gap-1">
-                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                           </div>
-                          <p className="text-base md:text-lg font-semibold text-primary">
-                            Refreshing status...
+                          <p className="text-base md:text-lg font-semibold text-primary ml-2">
+                            Please wait some time
                           </p>
                         </div>
-                      )}
+                      </div>
+                      
+                      <p className="text-sm md:text-base text-muted-foreground">
+                        We are verifying your information. Status will update automatically.
+                      </p>
                     </div>
                 </div>
               )}

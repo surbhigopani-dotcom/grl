@@ -106,14 +106,27 @@ const ProfileSetup = () => {
       const loan = loanResponse.data.loan;
       toast.success('Profile completed! Validating your documents...');
 
-      // Start validation immediately
-      try {
-        await axios.post(`/loans/${loan.id}/validate`);
-        // Navigate to home with validation state
+      // Check loan status before trying to validate
+      // If loan is already validating or approved, just navigate
+      if (loan.status === 'validating' || loan.status === 'approved') {
         navigate('/home', { state: { validating: true, loanId: loan.id } });
-      } catch (error) {
-        console.error('Auto-validation error:', error);
-        navigate('/home');
+      } else if (loan.status === 'pending') {
+        // Only start validation if loan is pending
+        try {
+          await axios.post(`/loans/${loan.id}/validate`, {}, {
+            skipErrorToast: true // Don't show error if validation fails
+          });
+          // Navigate to home with validation state
+          navigate('/home', { state: { validating: true, loanId: loan.id } });
+        } catch (error) {
+          // If validation fails, just navigate without validation state
+          // User can manually start validation from home page
+          console.warn('Auto-validation failed (optional):', error.response?.data?.message || error.message);
+          navigate('/home', { state: { loanId: loan.id } });
+        }
+      } else {
+        // For any other status, just navigate
+        navigate('/home', { state: { loanId: loan.id } });
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to complete setup');
