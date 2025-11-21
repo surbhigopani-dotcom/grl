@@ -149,12 +149,12 @@ const Payment = () => {
   // Generate CLEAN UPI payment string (NO RISKY PARAMETERS)
   const loanId = loan?.loanId || loan?._id?.slice(-8);
   const referenceId = `GL${loanId}`;
-  const merchantName = 'GrowLoan';
-  const paymentNote = `Loan ${referenceId}`;
+  const paymentNote = `Loan Payment ${referenceId}`;
   
   // Clean UPI string - ONLY required parameters (avoids risky payment warning)
-  // pa = payee address, pn = payee name, am = amount, cu = currency, tn = transaction note
-  const upiPaymentString = `upi://pay?pa=${upiId}&pn=${merchantName}&am=${totalAmount}&cu=INR&tn=${paymentNote}`;
+  // pa = payee address, am = amount, cu = currency, tn = transaction note
+  // NOTE: Removed 'pn' parameter to avoid name mismatch issues with UPI network
+  const upiPaymentString = `upi://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${paymentNote}`;
 
   // Helper function to check if iOS
   const isIOS = () => {
