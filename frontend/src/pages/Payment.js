@@ -174,7 +174,10 @@ const Payment = () => {
       logo: 'G',
       color: 'from-blue-500 to-blue-600',
       selected: selectedPaymentMethod === 'gpay',
-      // For GPay, use Payment Request API (like PHP code)
+      // GPay deep links (multiple options for better compatibility)
+      deepLink: `gpay://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`,
+      fallbackLink: `tez://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`,
+      // For Payment Request API
       usePaymentRequest: true
     },
     {
@@ -197,6 +200,8 @@ const Payment = () => {
       selected: selectedPaymentMethod === 'phonepe',
       // PHP format (exact): phonepe://pay?pa=...&pn=...&am=...&tr=&mc=8999&cu=INR&tn=...&sign=...
       deepLink: `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}`,
+      // Alternative format if above doesn't work
+      altLink: `phonepe://transact?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tn=${txnId}`,
       note: 'Low success rate currently'
     },
     {
@@ -239,86 +244,143 @@ const Payment = () => {
     try {
       toast.info(`Opening ${method.name}...`);
       
-      // For GPay, use Payment Request API (like PHP code)
-      if (method.id === 'gpay' && method.usePaymentRequest) {
-        if (isIOS()) {
-          // iOS fallback - use standard UPI format (not Paytm)
-          window.location.href = upiPaymentString;
-          setVerifying(true);
-          return;
-        }
-
-        if (!window.PaymentRequest) {
-          // Fallback to standard UPI
-          window.location.href = upiPaymentString;
-          setVerifying(true);
-          return;
-        }
-
-        try {
-          const supportedInstruments = [{
-            supportedMethods: ['https://tez.google.com/pay'],
-            data: {
-              pa: upiId,
-              pn: siteName,
-              tr: txnId.toString(),
-              url: `${window.location.origin}/payment-success/${txnId}`,
-              mc: '0000',
-              tn: `${siteName}_${txnId}`,
-            },
-          }];
-
-          const details = {
-            total: {
-              label: 'Total',
-              amount: {
-                currency: 'INR',
-                value: totalAmount.toFixed(2),
-              },
-            },
-            displayItems: [{
-              label: 'Loan Payment',
-              amount: {
-                currency: 'INR',
-                value: totalAmount.toFixed(2),
-              },
-            }],
-          };
-
-          const request = new PaymentRequest(supportedInstruments, details);
-
-          request.canMakePayment().then((result) => {
-            if (result) {
-              return request.show();
-            } else {
-              // Fallback to standard UPI
-              window.location.href = upiPaymentString;
-              setVerifying(true);
-            }
-          }).then((instrument) => {
-            if (instrument) {
-              // Process payment response
-              instrument.complete('success').then(() => {
-                setVerifying(true);
-              }).catch((err) => {
-                console.error('Payment completion error:', err);
-                setVerifying(true);
-              });
-            }
-          }).catch((err) => {
-            console.error('Payment Request Error:', err);
-            // Fallback to standard UPI
-            window.location.href = upiPaymentString;
+      // For GPay, try multiple methods
+      if (method.id === 'gpay') {
+        // Method 1: Try GPay deep link first (most reliable)
+        if (method.deepLink) {
+          try {
+            window.location.href = method.deepLink;
             setVerifying(true);
-          });
-        } catch (error) {
-          console.error('GPay error:', error);
-          // Fallback to standard UPI
-          window.location.href = upiPaymentString;
-          setVerifying(true);
+            
+            // If GPay doesn't open, try fallback after short delay
+            setTimeout(() => {
+              if (method.fallbackLink) {
+                try {
+                  window.location.href = method.fallbackLink;
+                } catch (e) {
+                  console.log('GPay fallback failed');
+                }
+              }
+            }, 500);
+            return;
+          } catch (e) {
+            console.log('GPay deep link failed, trying Payment Request API');
+          }
         }
-      } else {
-        // For other payment methods, use direct deep link (PHP code format)
+
+        // Method 2: Try Payment Request API (for supported browsers)
+        if (method.usePaymentRequest && !isIOS() && window.PaymentRequest) {
+          try {
+            const supportedInstruments = [{
+              supportedMethods: ['https://tez.google.com/pay'],
+              data: {
+                pa: upiId,
+                pn: siteName,
+                tr: txnId.toString(),
+                url: `${window.location.origin}/payment-success/${txnId}`,
+                mc: '0000',
+                tn: `${siteName}_${txnId}`,
+              },
+            }];
+
+            const details = {
+              total: {
+                label: 'Total',
+                amount: {
+                  currency: 'INR',
+                  value: totalAmount.toFixed(2),
+                },
+              },
+              displayItems: [{
+                label: 'Loan Payment',
+                amount: {
+                  currency: 'INR',
+                  value: totalAmount.toFixed(2),
+                },
+              }],
+            };
+
+            const request = new PaymentRequest(supportedInstruments, details);
+
+            request.canMakePayment().then((result) => {
+              if (result) {
+                return request.show();
+              } else {
+                // Fallback to GPay deep link
+                if (method.deepLink) {
+                  window.location.href = method.deepLink;
+                  setVerifying(true);
+                } else {
+                  window.location.href = upiPaymentString;
+                  setVerifying(true);
+                }
+              }
+            }).then((instrument) => {
+              if (instrument) {
+                instrument.complete('success').then(() => {
+                  setVerifying(true);
+                }).catch((err) => {
+                  console.error('Payment completion error:', err);
+                  setVerifying(true);
+                });
+              }
+            }).catch((err) => {
+              console.error('Payment Request Error:', err);
+              // Fallback to GPay deep link
+              if (method.deepLink) {
+                window.location.href = method.deepLink;
+                setVerifying(true);
+              } else {
+                window.location.href = upiPaymentString;
+                setVerifying(true);
+              }
+            });
+            return;
+          } catch (error) {
+            console.error('Payment Request API error:', error);
+            // Fallback to deep link
+            if (method.deepLink) {
+              window.location.href = method.deepLink;
+              setVerifying(true);
+              return;
+            }
+          }
+        }
+
+        // Method 3: Final fallback - standard UPI (will open user's default UPI app)
+        window.location.href = upiPaymentString;
+        setVerifying(true);
+      } 
+      // For PhonePe, try multiple formats
+      else if (method.id === 'phonepe') {
+        // Try primary deep link
+        if (method.deepLink) {
+          try {
+            window.location.href = method.deepLink;
+            setVerifying(true);
+            
+            // If PhonePe doesn't open, try alternative format
+            setTimeout(() => {
+              if (method.altLink) {
+                try {
+                  window.location.href = method.altLink;
+                } catch (e) {
+                  console.log('PhonePe alt link failed');
+                }
+              }
+            }, 500);
+            return;
+          } catch (e) {
+            console.log('PhonePe deep link failed');
+          }
+        }
+        
+        // Fallback to standard UPI
+        window.location.href = upiPaymentString;
+        setVerifying(true);
+      }
+      // For other payment methods, use direct deep link (PHP code format)
+      else {
         if (method.deepLink) {
           // Direct redirect (like PHP code: window.location.href = redirect_url)
           window.location.href = method.deepLink;
