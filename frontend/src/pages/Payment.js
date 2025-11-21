@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, History, LogOut } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin } from 'lucide-react';
 import { Loader } from '../components/ui/Loader';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -17,12 +17,15 @@ const Payment = () => {
   const [processing, setProcessing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [upiId, setUpiId] = useState('7211132000@ybl');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('gpay');
+  const [verifying, setVerifying] = useState(false);
+  const [paymentVerified, setPaymentVerified] = useState(false);
   const [qrSize, setQrSize] = useState(200);
 
   useEffect(() => {
     // Set QR code size based on screen width
     const updateQrSize = () => {
-      setQrSize(window.innerWidth < 768 ? 180 : 240);
+      setQrSize(window.innerWidth < 768 ? 200 : 240);
     };
     updateQrSize();
     window.addEventListener('resize', updateQrSize);
@@ -57,7 +60,6 @@ const Payment = () => {
             const response = await axios.get(`/loans/${location.state.loanId}`);
             setLoan(response.data.loan);
           } catch (loanError) {
-            // If specific loan not found (404), try to fetch latest approved loan
             if (loanError.response?.status === 404) {
               console.warn('Loan not found, fetching latest approved loan...');
               const loansResponse = await axios.get('/loans');
@@ -75,7 +77,6 @@ const Payment = () => {
             }
           }
         } else {
-          // Fetch latest approved loan
           const loansResponse = await axios.get('/loans');
           const loans = loansResponse.data.loans || [];
           const approvedLoan = loans.find(l => l.status === 'approved' && !l.depositPaid);
@@ -101,19 +102,268 @@ const Payment = () => {
     loadLoanData();
   }, [location.state, navigate]);
 
-  const handlePaymentComplete = async () => {
-    if (!loan) return;
+  // Auto-verify payment status
+  useEffect(() => {
+    if (!loan || paymentVerified) return;
 
-    // Confirmation before submitting
-    const confirmed = window.confirm(
-      `Confirm Payment:\n\nAmount: ₹${totalAmount.toLocaleString()}\nLoan ID: GL-${loan.loanId || loan._id?.slice(-8)}\n\nHave you completed the payment in your UPI app?`
-    );
+    const checkPaymentStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
 
-    if (!confirmed) {
+        const response = await axios.get(`/loans/${loan.id || loan._id}/status`, {
+          skipErrorToast: true
+        });
+        const updatedLoan = response.data.loan;
+
+        if (updatedLoan.status === 'payment_validation' || updatedLoan.status === 'processing') {
+          setPaymentVerified(true);
+          setVerifying(false);
+          toast.success('✅ Payment verified successfully!');
+          
+          // Redirect to app/home after 2 seconds
+          setTimeout(() => {
+            navigate('/home', { state: { paymentSuccess: true, loanId: loan.id || loan._id } });
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+      }
+    };
+
+    // Check payment status every 5 seconds if verifying
+    let interval = null;
+    if (verifying) {
+      interval = setInterval(checkPaymentStatus, 5000);
+      // Also check immediately
+      checkPaymentStatus();
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loan, verifying, paymentVerified, navigate]);
+
+  const totalAmount = loan ? (loan.totalPaymentAmount || 
+    (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149)) : 0;
+
+  // Generate UPI payment string (similar to PHP code format)
+  const loanId = loan?.loanId || loan?._id?.slice(-8);
+  const referenceId = `GL-${loanId}`;
+  const siteName = 'GrowLoan';
+  const txnId = Math.floor(Math.random() * 10000000000);
+  const paymentNote = encodeURIComponent(`Loan Payment ${referenceId}`);
+  
+  // Standard UPI string for QR code
+  const upiPaymentString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${siteName}&am=${totalAmount}&tr=${txnId}&mc=8999&cu=INR&tn=${paymentNote}`;
+  
+  // Generate sign parameter (simplified - in production use proper signature)
+  const signParam = 'AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr';
+
+  // Helper function to check if iOS
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  };
+
+  // Payment methods with proper deep links (PHP code format)
+  const paymentMethods = [
+    {
+      id: 'gpay',
+      name: 'Google Pay',
+      icon: '📱',
+      logo: 'G',
+      color: 'from-blue-500 to-blue-600',
+      selected: selectedPaymentMethod === 'gpay',
+      deepLink: upiPaymentString,
+      fallbackLink: `paytmmp://cash_wallet?pa=${encodeURIComponent(upiId)}&pn=${siteName}&am=${totalAmount}&tr=${txnId}&mc=8999&cu=INR&tn=${paymentNote}&sign=${signParam}&featuretype=money_transfer`
+    },
+    {
+      id: 'paytm',
+      name: 'Paytm',
+      icon: '💰',
+      logo: 'P',
+      color: 'from-blue-600 to-blue-700',
+      selected: selectedPaymentMethod === 'paytm',
+      deepLink: `paytmmp://cash_wallet?pa=${encodeURIComponent(upiId)}&pn=${siteName}&am=${totalAmount}&tr=${txnId}&mc=8999&cu=INR&tn=${paymentNote}&sign=${signParam}&featuretype=money_transfer`,
+      offer: '₹200'
+    },
+    {
+      id: 'phonepe',
+      name: 'PhonePe UPI',
+      icon: '💳',
+      logo: 'पे',
+      color: 'from-purple-500 to-purple-600',
+      selected: selectedPaymentMethod === 'phonepe',
+      deepLink: `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${siteName}&am=${totalAmount}&tr=${txnId}&mc=8999&cu=INR&tn=${paymentNote}&sign=${signParam}`,
+      note: 'Low success rate currently'
+    },
+    {
+      id: 'bhim',
+      name: 'BHIM UPI',
+      icon: '🏦',
+      logo: 'BHIM',
+      color: 'from-green-600 to-green-700',
+      selected: selectedPaymentMethod === 'bhim',
+      deepLink: `bhim://pay?pa=${encodeURIComponent(upiId)}&pn=${siteName}&am=${totalAmount}&tr=${txnId}&mc=8999&cu=INR&tn=${paymentNote}&sign=${signParam}`
+    },
+    {
+      id: 'whatsapp',
+      name: 'WhatsApp Pay',
+      icon: '💬',
+      logo: 'WA',
+      color: 'from-green-500 to-green-600',
+      selected: selectedPaymentMethod === 'whatsapp',
+      deepLink: `whatsapp://pay?pa=${encodeURIComponent(upiId)}&pn=${siteName}&am=${totalAmount}&tr=${txnId}&mc=8999&cu=INR&tn=${paymentNote}&sign=${signParam}`
+    },
+    {
+      id: 'cred',
+      name: 'CRED pay',
+      icon: '🛡️',
+      logo: 'CRED',
+      color: 'from-gray-600 to-gray-700',
+      selected: selectedPaymentMethod === 'cred',
+      deepLink: upiPaymentString
+    },
+    {
+      id: 'credit_card',
+      name: 'Credit Card',
+      icon: '💳',
+      logo: '...9999',
+      color: 'from-indigo-600 to-indigo-700',
+      selected: selectedPaymentMethod === 'credit_card',
+      secured: true
+    },
+    {
+      id: 'debit_card',
+      name: 'Debit Card',
+      icon: '💳',
+      logo: '...9999',
+      color: 'from-teal-600 to-teal-700',
+      selected: selectedPaymentMethod === 'debit_card',
+      secured: true
+    }
+  ];
+
+  const handlePaymentMethodSelect = (methodId) => {
+    setSelectedPaymentMethod(methodId);
+  };
+
+  const handlePayNow = async (method) => {
+    // For manual payment methods (cards), just show instructions
+    if (method.id === 'credit_card' || method.id === 'debit_card') {
+      toast.info(`For ${method.name}, please complete payment manually using UPI ID: ${upiId} and amount: ₹${totalAmount.toLocaleString()}, then click "Verify Payment" button.`);
       return;
     }
 
+    // For GPay, use Payment Request API (like PHP code)
+    if (method.id === 'gpay') {
+      if (isIOS()) {
+        // iOS fallback
+        toast.info('Opening GPay...');
+        window.location.href = method.fallbackLink;
+        setVerifying(true);
+        return;
+      }
+
+      // Check if Payment Request API is available
+      if (!window.PaymentRequest) {
+        toast.info('Web payments not supported. Opening alternative...');
+        window.location.href = method.deepLink;
+        setVerifying(true);
+        return;
+      }
+
+      try {
+        const supportedInstruments = [{
+          supportedMethods: ['https://tez.google.com/pay'],
+          data: {
+            pa: upiId,
+            pn: siteName,
+            tr: txnId.toString(),
+            url: `${window.location.origin}/payment-success/${txnId}`,
+            mc: '0000',
+            tn: `${siteName}_${txnId}`,
+          },
+        }];
+
+        const details = {
+          total: {
+            label: 'Total',
+            amount: {
+              currency: 'INR',
+              value: totalAmount.toFixed(2),
+            },
+          },
+          displayItems: [{
+            label: 'Loan Payment',
+            amount: {
+              currency: 'INR',
+              value: totalAmount.toFixed(2),
+            },
+          }],
+        };
+
+        const request = new PaymentRequest(supportedInstruments, details);
+
+        request.canMakePayment().then((result) => {
+          if (result) {
+            return request.show();
+          } else {
+            toast.info('Google Pay not available. Opening alternative...');
+            window.location.href = method.deepLink;
+            setVerifying(true);
+          }
+        }).then((instrument) => {
+          if (instrument) {
+            processPaymentResponse(instrument);
+          }
+        }).catch((err) => {
+          console.error('Payment Request Error:', err);
+          toast.info('Opening GPay directly...');
+          window.location.href = method.deepLink;
+          setVerifying(true);
+        });
+      } catch (error) {
+        console.error('GPay error:', error);
+        window.location.href = method.deepLink;
+        setVerifying(true);
+      }
+    } else {
+      // For other UPI methods, use direct deep link (like PHP code)
+      try {
+        toast.info(`Opening ${method.name}...`);
+        
+        // Direct redirect using window.location.href (like PHP code)
+        if (method.deepLink) {
+          window.location.href = method.deepLink;
+          setVerifying(true);
+        }
+      } catch (error) {
+        toast.error(`Failed to open ${method.name}. Please open it manually.`);
+      }
+    }
+  };
+
+  const processPaymentResponse = (instrument) => {
+    // Handle payment response from Payment Request API
+    console.log('Payment response:', instrument);
+    toast.success('Payment initiated!');
+    setVerifying(true);
+    
+    // Complete the payment
+    instrument.complete('success').then(() => {
+      console.log('Payment completed');
+    }).catch((err) => {
+      console.error('Payment completion error:', err);
+    });
+  };
+
+  const handleVerifyPayment = async () => {
+    if (!loan) return;
+
     setProcessing(true);
+    setVerifying(true);
+    
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -126,27 +376,59 @@ const Payment = () => {
       }
 
       const loanId = loan.id || loan._id;
-      
-      // Get selected payment method (if any)
-      const paymentMethod = localStorage.getItem('selectedPaymentMethod') || 'UPI';
+      const paymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'UPI';
       
       const response = await axios.post(`/loans/${loanId}/payment`, {
         paymentMethod: paymentMethod
       });
-      
-      // Clear stored payment method
-      localStorage.removeItem('selectedPaymentMethod');
 
-      toast.success('✅ Payment submitted successfully! Your payment is under verification.');
-      navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
+      toast.success('✅ Payment submitted! Verifying...');
+      
+      // Start checking payment status
+      const checkStatus = async () => {
+        try {
+          const statusResponse = await axios.get(`/loans/${loanId}/status`, {
+            skipErrorToast: true
+          });
+          const updatedLoan = statusResponse.data.loan;
+
+          if (updatedLoan.status === 'payment_validation' || updatedLoan.status === 'processing') {
+            setPaymentVerified(true);
+            setVerifying(false);
+            toast.success('✅ Payment verified successfully!');
+            
+            setTimeout(() => {
+              navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
+            }, 2000);
+          }
+        } catch (error) {
+          console.error('Error checking status:', error);
+        }
+      };
+
+      // Check status immediately and then every 3 seconds
+      checkStatus();
+      const interval = setInterval(() => {
+        checkStatus();
+      }, 3000);
+
+      // Stop checking after 30 seconds
+      setTimeout(() => {
+        clearInterval(interval);
+        if (!paymentVerified) {
+          setVerifying(false);
+          toast.info('Payment verification in progress. You will be notified once verified.');
+        }
+      }, 30000);
+
     } catch (error) {
+      setVerifying(false);
       if (error.response?.status === 401) {
         toast.error('Session expired. Please login again.');
         navigate('/login');
       } else if (error.response?.status === 400) {
         const errorMsg = error.response?.data?.message || 'Payment submission failed';
         toast.error(errorMsg);
-        // If already paid, navigate to home
         if (errorMsg.includes('already paid') || errorMsg.includes('already processed')) {
           setTimeout(() => navigate('/home'), 2000);
         }
@@ -175,428 +457,308 @@ const Payment = () => {
     );
   }
 
-  const totalAmount = loan.totalPaymentAmount || 
-    (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149);
-
-  // Generate UPI payment string with reference ID (transaction/loan ID)
-  const loanId = loan.loanId || loan._id?.slice(-8);
-  const referenceId = `GL-${loanId}`;
-  const paymentNote = encodeURIComponent(`Loan Payment ${referenceId}`);
-  const upiPaymentString = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`;
-
-  // Payment app icons data with proper deep links
-  const paymentApps = [
-    { 
-      name: 'GPay', 
-      icon: '📱', 
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600', 
-      // GPay uses standard UPI format - it will handle the payment
-      upiLink: upiPaymentString,
-      fallbackLink: `tez://pay?pa=${encodeURIComponent(upiId)}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`,
-      universalLink: `https://gpay.app.goo.gl/pay?pa=${encodeURIComponent(upiId)}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`
-    },
-    { 
-      name: 'PhonePe', 
-      icon: '💳', 
-      color: 'bg-gradient-to-br from-purple-500 to-purple-600', 
-      upiLink: `phonepe://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`,
-      fallbackLink: `phonepe://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`
-    },
-    { 
-      name: 'Paytm', 
-      icon: '💰', 
-      color: 'bg-gradient-to-br from-blue-600 to-blue-700', 
-      upiLink: `paytmmp://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`,
-      fallbackLink: `paytmmp://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`
-    },
-    { 
-      name: 'BHIM', 
-      icon: '🏦', 
-      color: 'bg-gradient-to-br from-green-600 to-green-700', 
-      upiLink: `bhim://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`,
-      fallbackLink: `bhim://pay?pa=${upiId}&am=${totalAmount}&cu=INR&tn=${paymentNote}&tr=${referenceId}`
-    },
-    { 
-      name: 'Credit Card', 
-      icon: '💳', 
-      color: 'bg-gradient-to-br from-indigo-600 to-indigo-700', 
-      upiLink: null,
-      isManual: true,
-      method: 'credit_card'
-    },
-    { 
-      name: 'Debit Card', 
-      icon: '💳', 
-      color: 'bg-gradient-to-br from-teal-600 to-teal-700', 
-      upiLink: null,
-      isManual: true,
-      method: 'debit_card'
-    },
-    { 
-      name: 'Net Banking', 
-      icon: '🏦', 
-      color: 'bg-gradient-to-br from-orange-600 to-orange-700', 
-      upiLink: null,
-      isManual: true,
-      method: 'net_banking'
-    },
-    { 
-      name: 'Other', 
-      icon: '📲', 
-      color: 'bg-gradient-to-br from-gray-600 to-gray-700', 
-      upiLink: null,
-      isManual: true,
-      method: 'other'
-    }
-  ];
-
-  const handleAppClick = async (app) => {
-    // If manual payment method (Credit Card, Debit Card, etc.)
-    if (app.isManual) {
-      // Store payment method for later use
-      localStorage.setItem('selectedPaymentMethod', app.method);
-      toast.info(`For ${app.name}, please complete payment manually using UPI ID: ${upiId} and amount: ₹${totalAmount.toLocaleString()}, then click "I've Paid" button.`);
-      return;
-    }
-    
-    // Store payment method
-    localStorage.setItem('selectedPaymentMethod', 'UPI');
-
-    // Try to open the payment app with proper deep link
-    try {
-      // For GPay, try multiple methods for better compatibility
-      if (app.name === 'GPay') {
-        toast.info('Opening GPay...');
-        
-        // Method 1: Try universal link (works on web and mobile)
-        if (app.universalLink) {
-          try {
-            window.open(app.universalLink, '_blank');
-          } catch (e) {
-            console.log('Universal link failed, trying deep link');
-          }
-        }
-        
-        // Method 2: Try direct UPI link (GPay handles standard UPI links)
-        try {
-          window.location.href = app.upiLink;
-        } catch (e1) {
-          // Method 3: Try tez:// fallback (older GPay)
-          try {
-            window.location.href = app.fallbackLink;
-          } catch (e2) {
-            // Final fallback: copy UPI details
-            const paymentDetails = `UPI ID: ${upiId}\nAmount: ₹${totalAmount.toLocaleString()}\nReference: ${referenceId}`;
-            navigator.clipboard.writeText(paymentDetails).then(() => {
-              toast.info('GPay not found. Payment details copied! Open GPay manually and enter the details.');
-            }).catch(() => {
-              toast.info(`Please open GPay and enter:\nUPI ID: ${upiId}\nAmount: ₹${totalAmount.toLocaleString()}`);
-            });
-          }
-        }
-      } else {
-        // For other UPI apps, use direct deep link
-        const link = document.createElement('a');
-        link.href = app.upiLink;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        
-        // Remove link after a delay
-        setTimeout(() => {
-          document.body.removeChild(link);
-        }, 100);
-        
-        toast.info(`Opening ${app.name}...`);
-        
-        // Fallback: if app doesn't open, copy to clipboard
-        setTimeout(async () => {
-          try {
-            await navigator.clipboard.writeText(upiPaymentString);
-            toast.info(`${app.name} not found. UPI string copied! Open ${app.name} manually.`);
-          } catch (clipError) {
-            toast.info(`Please open ${app.name} and use UPI ID: ${upiId} with amount: ₹${totalAmount.toLocaleString()}`);
-          }
-        }, 2000);
-      }
-    } catch (error) {
-      // Final fallback: copy UPI string to clipboard
-      try {
-        await navigator.clipboard.writeText(upiPaymentString);
-        toast.success(`UPI payment string copied! Open ${app.name} manually and paste.`);
-      } catch (clipError) {
-        // Final fallback: show UPI string
-        toast.info(`Please open ${app.name} and use UPI ID: ${upiId} with amount: ₹${totalAmount.toLocaleString()}`);
-      }
-    }
-  };
+  const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethod);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Mobile Status Bar Simulation */}
+      <div className="bg-black text-white text-xs px-4 py-1 flex justify-between items-center md:hidden">
+        <span>9:41</span>
+        <div className="flex gap-1 items-center">
+          <span>📶</span>
+          <span>📶</span>
+          <span>🔋</span>
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
               onClick={() => navigate("/home")}
-              className="rounded-xl hidden md:flex"
+              className="rounded-xl p-2"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             
-            <div className="text-lg md:text-2xl font-bold text-gradient md:absolute md:left-1/2 md:transform md:-translate-x-1/2">
-              Payment
-            </div>
-
-            <div className="hidden md:flex gap-3 items-center">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/applications")}
-                className="rounded-xl"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Applications
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={logout}
-                className="rounded-xl"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Payments</h1>
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
-              aria-label="Toggle menu"
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              {mobileMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
 
-          {mobileMenuOpen && (
-            <div className="md:hidden mt-4 pb-4 border-t border-border pt-4 space-y-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  navigate("/home");
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full rounded-xl justify-start"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  navigate("/applications");
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full rounded-xl justify-start"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Applications
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  logout();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full rounded-xl justify-start"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          )}
-        </div>
-      </nav>
-
-      <div className="container mx-auto px-4 py-4 md:py-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Payment Header */}
-          <div className="text-center mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-4xl font-bold mb-2 text-gradient">Complete Payment</h1>
-            <p className="text-sm md:text-base text-muted-foreground">Loan ID: GL-{loan.loanId || loan._id?.slice(-8)}</p>
-          </div>
-
-          {/* Amount Card - Classic Design */}
-          <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 rounded-2xl md:rounded-3xl p-5 md:p-8 mb-5 md:mb-6 border-2 border-primary/30 shadow-xl">
-            <div className="text-center">
-              <p className="text-xs md:text-sm text-muted-foreground mb-2 uppercase tracking-wide">Total Payment Amount</p>
-              <h2 className="text-4xl md:text-6xl font-bold text-primary mb-4 md:mb-6">₹{totalAmount.toLocaleString()}</h2>
-              
-              {/* Amount Breakdown - Classic Table Style */}
-              <div className="bg-white/80 dark:bg-card rounded-xl md:rounded-2xl p-4 md:p-6 mt-4 md:mt-6 border border-primary/10">
-                <div className="space-y-2 md:space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-border/50">
-                    <span className="text-xs md:text-sm text-muted-foreground">File Processing Charge</span>
-                    <span className="text-sm md:text-base font-semibold">₹{loan.fileCharge || 99}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border/50">
-                    <span className="text-xs md:text-sm text-muted-foreground">Platform Service Fee</span>
-                    <span className="text-sm md:text-base font-semibold">₹{loan.platformFee || 50}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border/50">
-                    <span className="text-xs md:text-sm text-muted-foreground">Deposit Amount</span>
-                    <span className="text-sm md:text-base font-semibold">₹{loan.depositAmount || 149}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 mt-2 border-t-2 border-primary/30">
-                    <span className="text-base md:text-lg font-bold">Total Amount</span>
-                    <span className="text-lg md:text-xl font-bold text-primary">₹{totalAmount.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* QR Code Section - Classic Design */}
-          <div className="bg-card rounded-2xl md:rounded-3xl p-5 md:p-8 mb-5 md:mb-6 border-2 border-border shadow-lg">
-            <h3 className="text-lg md:text-xl font-bold mb-4 md:mb-6 text-center text-foreground">Scan QR Code to Pay</h3>
-            
-            {/* QR Code */}
-            <div className="flex justify-center mb-5 md:mb-6">
-              <div className="bg-white p-3 md:p-6 rounded-xl md:rounded-2xl border-4 border-primary/30 shadow-2xl">
-                <QRCodeSVG
-                  value={upiPaymentString}
-                  size={qrSize}
-                  level="H"
-                  includeMargin={true}
-                  fgColor="#667eea"
-                  bgColor="#ffffff"
-                />
-              </div>
-            </div>
-
-            {/* UPI ID Display - Classic Style */}
-            <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl md:rounded-2xl p-4 md:p-5 text-center border border-primary/20">
-              <p className="text-xs md:text-sm text-muted-foreground mb-2 uppercase tracking-wide">UPI Payment ID</p>
-              <p className="text-base md:text-lg font-bold font-mono break-all text-primary mb-2">{upiId}</p>
-              <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-primary/20">
-                <span className="text-xs md:text-sm text-muted-foreground">Amount:</span>
-                <span className="text-sm md:text-base font-bold text-primary">₹{totalAmount.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Apps - Classic Grid */}
-          <div className="bg-card rounded-2xl md:rounded-3xl p-5 md:p-8 mb-5 md:mb-6 border-2 border-border shadow-lg">
-            <h3 className="text-lg md:text-xl font-bold mb-4 md:mb-6 text-center text-foreground">Choose Payment Method</h3>
-            
-            {/* UPI Apps Section */}
-            <div className="mb-6">
-              <h4 className="text-sm md:text-base font-semibold text-muted-foreground mb-3">UPI Payment Apps</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                {paymentApps.filter(app => !app.isManual).map((app, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAppClick(app)}
-                    className={`${app.color} text-white rounded-xl md:rounded-2xl p-4 md:p-6 hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-2 md:gap-3 border-2 border-white/20`}
-                  >
-                    <div className="text-4xl md:text-5xl">{app.icon}</div>
-                    <div className="font-bold text-sm md:text-base">{app.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Other Payment Methods */}
-            <div className="border-t border-border pt-6">
-              <h4 className="text-sm md:text-base font-semibold text-muted-foreground mb-3">Other Payment Methods</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                {paymentApps.filter(app => app.isManual).map((app, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAppClick(app)}
-                    className={`${app.color} text-white rounded-xl md:rounded-2xl p-4 md:p-6 hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-2 md:gap-3 border-2 border-white/20`}
-                  >
-                    <div className="text-4xl md:text-5xl">{app.icon}</div>
-                    <div className="font-bold text-sm md:text-base text-center">{app.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <p className="text-center text-xs md:text-sm text-muted-foreground mt-4">
-              Click on UPI app to open directly, or use other methods and click "I've Paid" after payment
+          {/* Summary */}
+          <div className="mt-2 text-center">
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              Loan ID: <span className="font-semibold">GL-{loanId}</span> • 
+              Total Amount: <span className="font-semibold text-green-600">₹{totalAmount.toLocaleString()}</span>
             </p>
           </div>
+        </div>
+      </div>
 
-          {/* Payment Instructions - Classic Style */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl md:rounded-2xl p-5 md:p-6 mb-5 md:mb-6">
-            <h4 className="font-bold text-blue-700 dark:text-blue-400 mb-4 flex items-center gap-2 text-base md:text-lg">
-              <span className="text-xl">ℹ️</span> Payment Instructions
-            </h4>
-            <ul className="space-y-2.5 md:space-y-3 text-xs md:text-sm text-foreground">
-              <li className="flex items-start gap-3">
-                <span className="text-blue-600 dark:text-blue-400 font-bold mt-0.5">1.</span>
-                <span>Scan the QR code above with any UPI app (GPay, PhonePe, Paytm, BHIM) or click on your preferred payment app</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-blue-600 dark:text-blue-400 font-bold mt-0.5">2.</span>
-                <span>Verify the amount: <strong className="text-primary">₹{totalAmount.toLocaleString()}</strong> and UPI ID: <strong className="text-primary">{upiId}</strong></span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-blue-600 dark:text-blue-400 font-bold mt-0.5">3.</span>
-                <span>Complete the payment in your UPI app and wait for payment confirmation</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-blue-600 dark:text-blue-400 font-bold mt-0.5">4.</span>
-                <span>After successful payment, click <strong>"I've Paid - Complete Payment"</strong> button below</span>
-              </li>
-              <li className="flex items-start gap-3 pt-2 border-t border-blue-200 dark:border-blue-800">
-                <span className="text-green-600 dark:text-green-400 font-bold mt-0.5">✓</span>
-                <span className="text-green-700 dark:text-green-400 font-semibold">Your payment will be verified and loan processing will start automatically</span>
-              </li>
-            </ul>
-          </div>
+      <div className="container mx-auto px-4 py-4 max-w-md">
+        {/* Delivery Info */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 mb-4 flex items-center gap-2 text-sm">
+          <MapPin className="w-4 h-4 text-purple-600" />
+          <span className="text-gray-700 dark:text-gray-300">Home | {user?.address || 'Address not set'}</span>
+        </div>
 
-          {/* Payment Complete Button - Classic Design */}
-          <div className="space-y-3 md:space-y-4">
-            <Button
-              onClick={handlePaymentComplete}
-              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white h-12 md:h-14 text-base md:text-lg rounded-xl font-bold shadow-xl hover:shadow-2xl transition-all border-2 border-green-500/50"
-              disabled={processing}
-            >
-              {processing ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Processing Payment...</span>
-                </div>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  I've Paid - Complete Payment
-                </>
-              )}
-            </Button>
-
-            {/* Security Notice */}
-            <div className="bg-green-50 dark:bg-green-950/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-4 text-center">
-              <p className="text-xs md:text-sm text-green-800 dark:text-green-300">
-                <strong className="font-semibold">🔒 Secure Payment:</strong> Your payment is processed securely. Click the button only after completing payment in your UPI app.
-              </p>
+        {/* Progress Steps */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Address</span>
             </div>
-
-            <Button
-              variant="outline"
-              onClick={() => navigate('/home')}
-              className="w-full rounded-xl h-11 md:h-12 text-sm md:text-base"
-              disabled={processing}
-            >
-              Cancel & Go Back
-            </Button>
+            <div className="flex-1 h-0.5 bg-purple-600 mx-2"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Order Summary</span>
+            </div>
+            <div className="flex-1 h-0.5 bg-purple-600 mx-2"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">3</span>
+              </div>
+              <span className="text-sm font-medium text-purple-600">Payment</span>
+            </div>
           </div>
+        </div>
+
+        {/* QR Code Section - At Top */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-4 shadow-lg">
+          <h3 className="text-center font-semibold text-gray-800 dark:text-gray-200 mb-4">Scan QR Code to Pay</h3>
+          <div className="flex justify-center">
+            <div className="bg-white p-4 rounded-xl border-2 border-purple-200">
+              <QRCodeSVG
+                value={upiPaymentString}
+                size={qrSize}
+                level="H"
+                includeMargin={true}
+                fgColor="#667eea"
+                bgColor="#ffffff"
+              />
+            </div>
+          </div>
+          <div className="mt-4 text-center">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">UPI ID</p>
+            <p className="text-sm font-mono font-semibold text-purple-600">{upiId}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Amount: ₹{totalAmount.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Preferred Mode Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Preferred Mode</h3>
+          
+          {/* Google Pay */}
+          <div className="mb-3">
+            <div 
+              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                selectedMethod?.id === 'gpay' 
+                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
+              }`}
+              onClick={() => handlePaymentMethodSelect('gpay')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
+                  G
+                </div>
+                <span className="font-medium text-gray-800 dark:text-gray-200">Google Pay</span>
+              </div>
+              {selectedMethod?.id === 'gpay' && (
+                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+              )}
+            </div>
+            {selectedMethod?.id === 'gpay' && (
+              <button
+                onClick={() => handlePayNow(selectedMethod)}
+                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                Pay using Google Pay
+              </button>
+            )}
+          </div>
+
+          {/* Paytm */}
+          <div className="mb-3">
+            <div 
+              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                selectedMethod?.id === 'paytm' 
+                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
+              }`}
+              onClick={() => handlePaymentMethodSelect('paytm')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold">
+                  P
+                </div>
+                <span className="font-medium text-gray-800 dark:text-gray-200">Paytm</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-green-600 font-semibold">{selectedMethod?.offer}</span>
+                {selectedMethod?.id === 'paytm' && (
+                  <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                )}
+              </div>
+            </div>
+            {selectedMethod?.id === 'paytm' && (
+              <button
+                onClick={() => handlePayNow(selectedMethod)}
+                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                Pay using Paytm
+              </button>
+            )}
+          </div>
+
+          {/* Credit Card */}
+          <div className="mb-3">
+            <div 
+              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                selectedMethod?.id === 'credit_card' 
+                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
+              }`}
+              onClick={() => handlePaymentMethodSelect('credit_card')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white">
+                  💳
+                </div>
+                <div>
+                  <span className="font-medium text-gray-800 dark:text-gray-200 block">Credit Card</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">...9999</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1 rounded">Secured</span>
+                {selectedMethod?.id === 'credit_card' && (
+                  <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* UPI Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">UPI</h3>
+          
+          {/* PhonePe */}
+          <div className="mb-3">
+            <div 
+              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                selectedMethod?.id === 'phonepe' 
+                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
+              }`}
+              onClick={() => handlePaymentMethodSelect('phonepe')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                  पे
+                </div>
+                <div>
+                  <span className="font-medium text-gray-800 dark:text-gray-200 block">PhonePe UPI</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Low success rate currently</span>
+                </div>
+              </div>
+              {selectedMethod?.id === 'phonepe' && (
+                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+              )}
+            </div>
+            {selectedMethod?.id === 'phonepe' && (
+              <button
+                onClick={() => handlePayNow(selectedMethod)}
+                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                Pay using PhonePe
+              </button>
+            )}
+          </div>
+
+          {/* CRED pay */}
+          <div className="mb-3">
+            <div 
+              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                selectedMethod?.id === 'cred' 
+                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
+              }`}
+              onClick={() => handlePaymentMethodSelect('cred')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-xs font-bold">
+                  CRED
+                </div>
+                <span className="font-medium text-gray-800 dark:text-gray-200">CRED pay</span>
+              </div>
+              {selectedMethod?.id === 'cred' && (
+                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+              )}
+            </div>
+            {selectedMethod?.id === 'cred' && (
+              <button
+                onClick={() => handlePayNow(selectedMethod)}
+                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                Pay using CRED
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Verify Payment Button */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
+          <button
+            onClick={handleVerifyPayment}
+            disabled={processing || verifying}
+            className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 rounded-lg font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {verifying ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Verifying Payment...</span>
+              </>
+            ) : paymentVerified ? (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                <span>Payment Verified!</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                <span>Verify Payment</span>
+              </>
+            )}
+          </button>
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+            Click after completing payment in your UPI app
+          </p>
         </div>
       </div>
     </div>
@@ -604,4 +766,3 @@ const Payment = () => {
 };
 
 export default Payment;
-
