@@ -146,18 +146,15 @@ const Payment = () => {
   const totalAmount = loan ? (loan.totalPaymentAmount || 
     (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149)) : 0;
 
-  // Generate UPI payment string (PHP code format - exact match)
+  // Generate CLEAN UPI payment string (NO RISKY PARAMETERS)
   const loanId = loan?.loanId || loan?._id?.slice(-8);
   const referenceId = `GL${loanId}`;
-  const siteName = 'GrowLoan';
-  // Transaction ID format (10 digits like PHP code)
-  const txnId = Math.floor(Math.random() * 10000000000);
+  const merchantName = 'GrowLoan';
+  const paymentNote = `Loan ${referenceId}`;
   
-  // Sign parameter (from PHP code - exact match)
-  const signParam = 'AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr';
-  
-  // Standard UPI string for QR code (PHP format - clean without sign/mc)
-  const upiPaymentString = `upi://pay?pa=${upiId}&pn=${siteName}&am=${totalAmount}&cu=INR&tr=${txnId}&tn=${txnId}`;
+  // Clean UPI string - ONLY required parameters (avoids risky payment warning)
+  // pa = payee address, pn = payee name, am = amount, cu = currency, tn = transaction note
+  const upiPaymentString = `upi://pay?pa=${upiId}&pn=${merchantName}&am=${totalAmount}&cu=INR&tn=${paymentNote}`;
 
   // Helper function to check if iOS
   const isIOS = () => {
@@ -182,17 +179,9 @@ const Payment = () => {
     try {
       toast.info('Opening UPI apps...');
 
-      if (isIOS()) {
-        // iOS - Use Paytm link for better compatibility (PHP code format)
-        const iosUpiLink = `paytmmp://cash_wallet?pa=${upiId}&pn=${siteName}&am=${totalAmount}&tr=&mc=8999&cu=INR&tn=${txnId}&sign=${signParam}&featuretype=money_transfer`;
-        window.location.href = iosUpiLink;
-      } else if (isAndroid()) {
-        // Android - Standard UPI link (triggers native app selector)
-        window.location.href = upiPaymentString;
-      } else {
-        // Desktop/other - Standard UPI
-        window.location.href = upiPaymentString;
-      }
+      // Use clean UPI link for ALL platforms (no risky parameters)
+      // This triggers native app selector and avoids "risky payment" warning
+      window.location.href = upiPaymentString;
 
       // Show message to verify after payment
       setTimeout(() => {
@@ -204,176 +193,6 @@ const Payment = () => {
     }
   };
 
-  const handlePayNow = async (method) => {
-    try {
-      toast.info(`Opening ${method.name}...`);
-      
-      // For GPay, try multiple methods
-      if (method.id === 'gpay') {
-        // Method 1: Try GPay deep link first (most reliable)
-        if (method.deepLink) {
-          try {
-            window.location.href = method.deepLink;
-            setVerifying(true);
-            
-            // If GPay doesn't open, try fallback after short delay
-            setTimeout(() => {
-              if (method.fallbackLink) {
-                try {
-                  window.location.href = method.fallbackLink;
-                } catch (e) {
-                  console.log('GPay fallback failed');
-                }
-              }
-            }, 500);
-            return;
-          } catch (e) {
-            console.log('GPay deep link failed, trying Payment Request API');
-          }
-        }
-
-        // Method 2: Try Payment Request API (for supported browsers)
-        if (method.usePaymentRequest && !isIOS() && window.PaymentRequest) {
-          try {
-            const supportedInstruments = [{
-              supportedMethods: ['https://tez.google.com/pay'],
-              data: {
-                pa: upiId,
-                pn: siteName,
-                tr: txnId.toString(),
-                url: `${window.location.origin}/payment-success/${txnId}`,
-                mc: '0000',
-                tn: `${siteName}_${txnId}`,
-              },
-            }];
-
-            const details = {
-              total: {
-                label: 'Total',
-                amount: {
-                  currency: 'INR',
-                  value: totalAmount.toFixed(2),
-                },
-              },
-              displayItems: [{
-                label: 'Loan Payment',
-                amount: {
-                  currency: 'INR',
-                  value: totalAmount.toFixed(2),
-                },
-              }],
-            };
-
-            const request = new PaymentRequest(supportedInstruments, details);
-
-            request.canMakePayment().then((result) => {
-              if (result) {
-                return request.show();
-              } else {
-                // Fallback to GPay deep link
-                if (method.deepLink) {
-                  window.location.href = method.deepLink;
-                  setVerifying(true);
-                } else {
-                  window.location.href = upiPaymentString;
-                  setVerifying(true);
-                }
-              }
-            }).then((instrument) => {
-              if (instrument) {
-                instrument.complete('success').then(() => {
-                  setVerifying(true);
-                }).catch((err) => {
-                  console.error('Payment completion error:', err);
-                  setVerifying(true);
-                });
-              }
-            }).catch((err) => {
-              console.error('Payment Request Error:', err);
-              // Fallback to GPay deep link
-              if (method.deepLink) {
-                window.location.href = method.deepLink;
-                setVerifying(true);
-              } else {
-                window.location.href = upiPaymentString;
-                setVerifying(true);
-              }
-            });
-            return;
-          } catch (error) {
-            console.error('Payment Request API error:', error);
-            // Fallback to deep link
-            if (method.deepLink) {
-              window.location.href = method.deepLink;
-              setVerifying(true);
-              return;
-            }
-          }
-        }
-
-        // Method 3: Final fallback - standard UPI (will open user's default UPI app)
-        window.location.href = upiPaymentString;
-        setVerifying(true);
-      } 
-      // For PhonePe, try multiple formats
-      else if (method.id === 'phonepe') {
-        // Try primary deep link
-        if (method.deepLink) {
-          try {
-            window.location.href = method.deepLink;
-            setVerifying(true);
-            
-            // If PhonePe doesn't open, try alternative format
-            setTimeout(() => {
-              if (method.altLink) {
-                try {
-                  window.location.href = method.altLink;
-                } catch (e) {
-                  console.log('PhonePe alt link failed');
-                }
-              }
-            }, 500);
-            return;
-          } catch (e) {
-            console.log('PhonePe deep link failed');
-          }
-        }
-        
-        // Fallback to standard UPI
-        window.location.href = upiPaymentString;
-        setVerifying(true);
-      }
-      // For other payment methods, use direct deep link (PHP code format)
-      else {
-        if (method.deepLink) {
-          // Direct redirect (like PHP code: window.location.href = redirect_url)
-          window.location.href = method.deepLink;
-          setVerifying(true);
-        } else {
-          // Fallback to standard UPI
-          window.location.href = upiPaymentString;
-          setVerifying(true);
-        }
-      }
-    } catch (error) {
-      console.error(`Error opening ${method.name}:`, error);
-      toast.error(`Failed to open ${method.name}. Please try scanning QR code.`);
-    }
-  };
-
-  const processPaymentResponse = (instrument) => {
-    // Handle payment response from Payment Request API
-    console.log('Payment response:', instrument);
-    toast.success('Payment initiated!');
-    setVerifying(true);
-    
-    // Complete the payment
-    instrument.complete('success').then(() => {
-      console.log('Payment completed');
-    }).catch((err) => {
-      console.error('Payment completion error:', err);
-    });
-  };
 
   const handleVerifyPayment = async () => {
     if (!loan) return;
