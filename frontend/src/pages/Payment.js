@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft, CheckCircle, Menu, X, Home, FileText, LogOut, MapPin, Copy, Share2, Download } from 'lucide-react';
+import { ArrowLeft, CheckCircle, MapPin, Copy, Share2, Download } from 'lucide-react';
 import { Loader } from '../components/ui/Loader';
 import { QRCodeCanvas } from 'qrcode.react';
 
@@ -15,7 +15,6 @@ const Payment = () => {
   const [loan, setLoan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [upiId, setUpiId] = useState('7211132000@ybl');
   const [verifying, setVerifying] = useState(false);
   const [paymentVerified, setPaymentVerified] = useState(false);
@@ -163,35 +162,87 @@ const Payment = () => {
     });
   };
 
+  // Detect iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
   // Open UPI apps with payment details
   const openGPay = () => {
-    // Create anchor element for better mobile compatibility
     const link = document.createElement('a');
-    link.href = upiPaymentString;
+    
+    // Use app-specific deep link for iOS to avoid WhatsApp Pay
+    if (isIOS) {
+      // iOS GPay deep link
+      link.href = `gpay://pay?pa=${upiId}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}`;
+    } else {
+      // Android - use standard UPI or GPay specific
+      link.href = `gpay://pay?pa=${upiId}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}`;
+    }
+    
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    
+    // Fallback to standard UPI after delay
+    setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+        // Try standard UPI as fallback
+        const fallbackLink = document.createElement('a');
+        fallbackLink.href = upiPaymentString;
+        fallbackLink.style.display = 'none';
+        document.body.appendChild(fallbackLink);
+        fallbackLink.click();
+        setTimeout(() => document.body.removeChild(fallbackLink), 100);
+      }
+    }, 1000);
   };
 
   const openPaytm = () => {
-    // Create anchor element for better mobile compatibility
     const link = document.createElement('a');
-    link.href = upiPaymentString;
+    
+    // Use Paytm-specific deep link
+    link.href = `paytmmp://pay?pa=${upiId}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}`;
+    
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    
+    // Fallback to standard UPI after delay
+    setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+        const fallbackLink = document.createElement('a');
+        fallbackLink.href = upiPaymentString;
+        fallbackLink.style.display = 'none';
+        document.body.appendChild(fallbackLink);
+        fallbackLink.click();
+        setTimeout(() => document.body.removeChild(fallbackLink), 100);
+      }
+    }, 1000);
   };
 
   const openPhonePe = () => {
-    // Create anchor element for better mobile compatibility
     const link = document.createElement('a');
-    link.href = upiPaymentString;
+    
+    // Use PhonePe-specific deep link
+    link.href = `phonepe://pay?pa=${upiId}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}`;
+    
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    
+    // Fallback to standard UPI after delay
+    setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+        const fallbackLink = document.createElement('a');
+        fallbackLink.href = upiPaymentString;
+        fallbackLink.style.display = 'none';
+        document.body.appendChild(fallbackLink);
+        fallbackLink.click();
+        setTimeout(() => document.body.removeChild(fallbackLink), 100);
+      }
+    }, 1000);
   };
   
   // Download QR Code
@@ -363,20 +414,10 @@ const Payment = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Mobile Status Bar Simulation */}
-      <div className="bg-black text-white text-xs px-4 py-1 flex justify-between items-center md:hidden">
-        <span>9:41</span>
-        <div className="flex gap-1 items-center">
-          <span>📶</span>
-          <span>📶</span>
-          <span>🔋</span>
-        </div>
-      </div>
-
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-3">
             <Button
               variant="ghost"
               onClick={() => navigate("/home")}
@@ -385,21 +426,18 @@ const Payment = () => {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             
-            <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Payments</h1>
+            <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Payment</h1>
 
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            <div className="w-9"></div> {/* Spacer for center alignment */}
           </div>
 
           {/* Summary */}
-          <div className="mt-2 text-center">
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Loan ID: <span className="font-semibold">GL-{loanId}</span> • 
-              Total Amount: <span className="font-semibold text-green-600">₹{totalAmount.toLocaleString()}</span>
+          <div className="text-center border-t border-gray-200 dark:border-gray-700 pt-3">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              Loan ID: <span className="font-semibold text-gray-900 dark:text-white">GL-{loanId}</span>
+            </p>
+            <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">
+              ₹{totalAmount.toLocaleString()}
             </p>
           </div>
         </div>
