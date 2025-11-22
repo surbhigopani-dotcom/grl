@@ -165,30 +165,33 @@ const Payment = () => {
 
   // Open UPI apps with payment details
   const openGPay = () => {
-    const gpayUrl = `tez://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment&tr=${loanId}`;
-    window.location.href = gpayUrl;
-    setTimeout(() => {
-      // Fallback to standard UPI if GPay not installed
-      window.location.href = upiPaymentString;
-    }, 500);
+    // Create anchor element for better mobile compatibility
+    const link = document.createElement('a');
+    link.href = upiPaymentString;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const openPaytm = () => {
-    const paytmUrl = `paytmmp://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment&tr=${loanId}`;
-    window.location.href = paytmUrl;
-    setTimeout(() => {
-      // Fallback to standard UPI if Paytm not installed
-      window.location.href = upiPaymentString;
-    }, 500);
+    // Create anchor element for better mobile compatibility
+    const link = document.createElement('a');
+    link.href = upiPaymentString;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const openPhonePe = () => {
-    const phonepeUrl = `phonepe://pay?pa=${upiId}&pn=${siteName}&am=${formattedAmount}&cu=INR&tn=LoanPayment&tr=${loanId}`;
-    window.location.href = phonepeUrl;
-    setTimeout(() => {
-      // Fallback to standard UPI if PhonePe not installed
-      window.location.href = upiPaymentString;
-    }, 500);
+    // Create anchor element for better mobile compatibility
+    const link = document.createElement('a');
+    link.href = upiPaymentString;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
   
   // Download QR Code
