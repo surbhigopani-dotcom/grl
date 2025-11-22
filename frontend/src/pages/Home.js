@@ -14,7 +14,8 @@ const Home = () => {
   const { user, logout, fetchUser } = useAuth();
   const [loanAmount, setLoanAmount] = useState('');
   const [currentLoan, setCurrentLoan] = useState(null);
-  const [depositAmount, setDepositAmount] = useState(149);
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [adminConfig, setAdminConfig] = useState(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [validating, setValidating] = useState(false);
@@ -197,7 +198,10 @@ const Home = () => {
       }
       
       const response = await axios.get('/admin/config');
-      setDepositAmount(response.data.config.depositAmount);
+      if (response.data.config) {
+        setAdminConfig(response.data.config);
+        setDepositAmount(response.data.config.depositAmount ?? 0);
+      }
     } catch (error) {
       console.error('Error fetching config:', error);
       // Don't show error toast for config fetch failures
@@ -724,33 +728,55 @@ const Home = () => {
                         </div>
                       </div>
                     )}
-                    {currentLoan.status !== 'payment_validation' && (
-                      <>
-                        <div className="bg-card rounded-xl md:rounded-2xl p-4 md:p-6 border border-border space-y-2 text-xs md:text-sm">
-                          <div className="flex justify-between py-1">
-                            <span className="text-muted-foreground">File Processing Charge:</span>
-                            <span className="font-bold">₹{currentLoan.fileCharge || 0}</span>
-                          </div>
-                          <div className="flex justify-between py-1">
-                            <span className="text-muted-foreground">Platform Service Fee:</span>
-                            <span className="font-bold">₹{currentLoan.platformFee || 0}</span>
-                          </div>
-                          <div className="flex justify-between py-1">
-                            <span className="text-muted-foreground">Deposit Amount:</span>
-                            <span className="font-bold">₹{currentLoan.depositAmount || 0}</span>
-                          </div>
-                          {currentLoan.tax > 0 && (
+                    {currentLoan.status !== 'payment_validation' && (() => {
+                      // For approved loans that haven't paid, use admin config if loan values are 0 or not set
+                      const isApprovedNotPaid = currentLoan.status === 'approved' && !currentLoan.depositPaid;
+                      const fileCharge = isApprovedNotPaid && (!currentLoan.fileCharge || currentLoan.fileCharge === 0)
+                        ? (adminConfig?.fileCharge ?? 0)
+                        : (currentLoan.fileCharge ?? 0);
+                      const platformFee = isApprovedNotPaid && (!currentLoan.platformFee || currentLoan.platformFee === 0)
+                        ? (adminConfig?.platformFee ?? 0)
+                        : (currentLoan.platformFee ?? 0);
+                      const depositAmt = isApprovedNotPaid && (!currentLoan.depositAmount || currentLoan.depositAmount === 0)
+                        ? (adminConfig?.depositAmount ?? 0)
+                        : (currentLoan.depositAmount ?? 0);
+                      const tax = isApprovedNotPaid && (!currentLoan.tax || currentLoan.tax === 0)
+                        ? (adminConfig?.tax ?? 0)
+                        : (currentLoan.tax ?? 0);
+                      const totalPayment = currentLoan.totalPaymentAmount && currentLoan.totalPaymentAmount > 0
+                        ? currentLoan.totalPaymentAmount
+                        : (fileCharge + platformFee + depositAmt + tax);
+                      
+                      return (
+                        <>
+                          <div className="bg-card rounded-xl md:rounded-2xl p-4 md:p-6 border border-border space-y-2 text-xs md:text-sm">
                             <div className="flex justify-between py-1">
-                              <span className="text-muted-foreground">Tax/GST:</span>
-                              <span className="font-bold">₹{currentLoan.tax || 0}</span>
+                              <span className="text-muted-foreground">File Processing Charge:</span>
+                              <span className="font-bold">₹{fileCharge}</span>
                             </div>
-                          )}
-                          <div className="h-px bg-border my-2 md:my-3" />
-                          <div className="flex justify-between text-base md:text-lg pt-1">
-                            <span className="font-bold">Total Payment:</span>
-                            <span className="font-bold text-accent">₹{currentLoan.totalPaymentAmount || ((currentLoan.fileCharge || 0) + (currentLoan.platformFee || 0) + (currentLoan.depositAmount || 0) + (currentLoan.tax || 0))}</span>
+                            <div className="flex justify-between py-1">
+                              <span className="text-muted-foreground">Platform Service Fee:</span>
+                              <span className="font-bold">₹{platformFee}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-muted-foreground">Deposit Amount:</span>
+                              <span className="font-bold">₹{depositAmt}</span>
+                            </div>
+                            {tax > 0 && (
+                              <div className="flex justify-between py-1">
+                                <span className="text-muted-foreground">Tax/GST:</span>
+                                <span className="font-bold">₹{tax}</span>
+                              </div>
+                            )}
+                            <div className="h-px bg-border my-2 md:my-3" />
+                            <div className="flex justify-between text-base md:text-lg pt-1">
+                              <span className="font-bold">Total Payment:</span>
+                              <span className="font-bold text-accent">₹{totalPayment}</span>
+                            </div>
                           </div>
-                        </div>
+                        </>
+                      );
+                    })()}
                         <Button
                           onClick={() => navigate('/payment', { state: { loanId: currentLoan.id || currentLoan._id } })}
                           className={`w-full h-12 md:h-14 text-base md:text-lg rounded-xl font-bold shadow-lg ${
@@ -759,7 +785,24 @@ const Home = () => {
                               : 'bg-success hover:bg-success/90 text-success-foreground'
                           }`}
                         >
-                          {currentLoan.paymentStatus === 'failed' ? '🔄 Retry Payment' : '💳 Pay Now'} - ₹{currentLoan.totalPaymentAmount || ((currentLoan.fileCharge || 0) + (currentLoan.platformFee || 0) + (currentLoan.depositAmount || 0) + (currentLoan.tax || 0))}
+                          {currentLoan.paymentStatus === 'failed' ? '🔄 Retry Payment' : '💳 Pay Now'} - ₹{(() => {
+                            const isApprovedNotPaid = currentLoan.status === 'approved' && !currentLoan.depositPaid;
+                            const fileCharge = isApprovedNotPaid && (!currentLoan.fileCharge || currentLoan.fileCharge === 0)
+                              ? (adminConfig?.fileCharge ?? 0)
+                              : (currentLoan.fileCharge ?? 0);
+                            const platformFee = isApprovedNotPaid && (!currentLoan.platformFee || currentLoan.platformFee === 0)
+                              ? (adminConfig?.platformFee ?? 0)
+                              : (currentLoan.platformFee ?? 0);
+                            const depositAmt = isApprovedNotPaid && (!currentLoan.depositAmount || currentLoan.depositAmount === 0)
+                              ? (adminConfig?.depositAmount ?? 0)
+                              : (currentLoan.depositAmount ?? 0);
+                            const tax = isApprovedNotPaid && (!currentLoan.tax || currentLoan.tax === 0)
+                              ? (adminConfig?.tax ?? 0)
+                              : (currentLoan.tax ?? 0);
+                            return currentLoan.totalPaymentAmount && currentLoan.totalPaymentAmount > 0
+                              ? currentLoan.totalPaymentAmount
+                              : (fileCharge + platformFee + depositAmt + tax);
+                          })()}
                         </Button>
                       </>
                     )}
