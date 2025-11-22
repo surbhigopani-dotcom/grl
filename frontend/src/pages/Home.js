@@ -774,38 +774,19 @@ const Home = () => {
                               <span className="font-bold text-accent">₹{totalPayment}</span>
                             </div>
                           </div>
+                          <Button
+                            onClick={() => navigate('/payment', { state: { loanId: currentLoan.id || currentLoan._id } })}
+                            className={`w-full h-12 md:h-14 text-base md:text-lg rounded-xl font-bold shadow-lg ${
+                              currentLoan.paymentStatus === 'failed'
+                                ? 'bg-error hover:bg-error/90 text-error-foreground'
+                                : 'bg-success hover:bg-success/90 text-success-foreground'
+                            }`}
+                          >
+                            {currentLoan.paymentStatus === 'failed' ? '🔄 Retry Payment' : '💳 Pay Now'} - ₹{totalPayment}
+                          </Button>
                         </>
                       );
                     })()}
-                        <Button
-                          onClick={() => navigate('/payment', { state: { loanId: currentLoan.id || currentLoan._id } })}
-                          className={`w-full h-12 md:h-14 text-base md:text-lg rounded-xl font-bold shadow-lg ${
-                            currentLoan.paymentStatus === 'failed'
-                              ? 'bg-error hover:bg-error/90 text-error-foreground'
-                              : 'bg-success hover:bg-success/90 text-success-foreground'
-                          }`}
-                        >
-                          {currentLoan.paymentStatus === 'failed' ? '🔄 Retry Payment' : '💳 Pay Now'} - ₹{(() => {
-                            const isApprovedNotPaid = currentLoan.status === 'approved' && !currentLoan.depositPaid;
-                            const fileCharge = isApprovedNotPaid && (!currentLoan.fileCharge || currentLoan.fileCharge === 0)
-                              ? (adminConfig?.fileCharge ?? 0)
-                              : (currentLoan.fileCharge ?? 0);
-                            const platformFee = isApprovedNotPaid && (!currentLoan.platformFee || currentLoan.platformFee === 0)
-                              ? (adminConfig?.platformFee ?? 0)
-                              : (currentLoan.platformFee ?? 0);
-                            const depositAmt = isApprovedNotPaid && (!currentLoan.depositAmount || currentLoan.depositAmount === 0)
-                              ? (adminConfig?.depositAmount ?? 0)
-                              : (currentLoan.depositAmount ?? 0);
-                            const tax = isApprovedNotPaid && (!currentLoan.tax || currentLoan.tax === 0)
-                              ? (adminConfig?.tax ?? 0)
-                              : (currentLoan.tax ?? 0);
-                            return currentLoan.totalPaymentAmount && currentLoan.totalPaymentAmount > 0
-                              ? currentLoan.totalPaymentAmount
-                              : (fileCharge + platformFee + depositAmt + tax);
-                          })()}
-                        </Button>
-                      </>
-                    )}
                   </div>
                 )}
 
