@@ -167,34 +167,41 @@ const Payment = () => {
 
   // Open UPI apps with payment details
   const openGPay = () => {
-    const link = document.createElement('a');
+    // For iOS, use standard UPI scheme with properly encoded parameters
+    // GPay on iOS will handle upi:// links and show payment screen
+    const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}&tr=${loanId}`;
     
-    // Use app-specific deep link for iOS to avoid WhatsApp Pay
     if (isIOS) {
-      // iOS GPay deep link
-      link.href = `gpay://pay?pa=${upiId}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}`;
+      // iOS: Direct window.location redirect works best
+      // This ensures GPay receives the payment parameters properly
+      window.location.href = upiLink;
     } else {
-      // Android - use standard UPI or GPay specific
-      link.href = `gpay://pay?pa=${upiId}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}`;
+      // Android: Try GPay specific scheme first
+      const gpayLink = `gpay://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(siteName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent('Loan Payment')}&tr=${loanId}`;
+      
+      const link = document.createElement('a');
+      link.href = gpayLink;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Fallback to standard UPI if GPay not available
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+          const fallbackLink = document.createElement('a');
+          fallbackLink.href = upiLink;
+          fallbackLink.style.display = 'none';
+          document.body.appendChild(fallbackLink);
+          fallbackLink.click();
+          setTimeout(() => {
+            if (document.body.contains(fallbackLink)) {
+              document.body.removeChild(fallbackLink);
+            }
+          }, 100);
+        }
+      }, 1000);
     }
-    
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    
-    // Fallback to standard UPI after delay
-    setTimeout(() => {
-      if (document.body.contains(link)) {
-        document.body.removeChild(link);
-        // Try standard UPI as fallback
-        const fallbackLink = document.createElement('a');
-        fallbackLink.href = upiPaymentString;
-        fallbackLink.style.display = 'none';
-        document.body.appendChild(fallbackLink);
-        fallbackLink.click();
-        setTimeout(() => document.body.removeChild(fallbackLink), 100);
-      }
-    }, 1000);
   };
 
   const openPaytm = () => {
