@@ -54,12 +54,18 @@ const AdminDashboard = () => {
   const handleSaveConfig = async () => {
     setSavingConfig(true);
     try {
+      // Allow 0 values - no validation needed
+      const depositAmount = config.depositAmount === '' || config.depositAmount === null || config.depositAmount === undefined ? 0 : parseFloat(config.depositAmount) || 0;
+      const fileCharge = config.fileCharge === '' || config.fileCharge === null || config.fileCharge === undefined ? 0 : parseFloat(config.fileCharge) || 0;
+      const platformFee = config.platformFee === '' || config.platformFee === null || config.platformFee === undefined ? 0 : parseFloat(config.platformFee) || 0;
+      const tax = config.tax === '' || config.tax === null || config.tax === undefined ? 0 : parseFloat(config.tax) || 0;
+      
       const response = await axios.put('/admin/config', {
         upiId: config.upiId,
-        depositAmount: parseFloat(config.depositAmount) || 0,
-        fileCharge: parseFloat(config.fileCharge) || 0,
-        platformFee: parseFloat(config.platformFee) || 0,
-        tax: parseFloat(config.tax) || 0
+        depositAmount: depositAmount,
+        fileCharge: fileCharge,
+        platformFee: platformFee,
+        tax: tax
       });
       toast.success('Configuration updated successfully!');
       setShowConfig(false);
@@ -215,9 +221,12 @@ const AdminDashboard = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      value={config.depositAmount || 149}
-                      onChange={(e) => setConfig({ ...config, depositAmount: e.target.value })}
-                      placeholder="149"
+                      value={config.depositAmount !== undefined && config.depositAmount !== null ? config.depositAmount : 0}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : (isNaN(parseFloat(e.target.value)) ? 0 : parseFloat(e.target.value));
+                        setConfig({ ...config, depositAmount: val });
+                      }}
+                      placeholder="0"
                       className="h-12 rounded-xl"
                     />
                   </div>
@@ -227,9 +236,12 @@ const AdminDashboard = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      value={config.fileCharge || 99}
-                      onChange={(e) => setConfig({ ...config, fileCharge: e.target.value })}
-                      placeholder="99"
+                      value={config.fileCharge !== undefined && config.fileCharge !== null ? config.fileCharge : 0}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : (isNaN(parseFloat(e.target.value)) ? 0 : parseFloat(e.target.value));
+                        setConfig({ ...config, fileCharge: val });
+                      }}
+                      placeholder="0"
                       className="h-12 rounded-xl"
                     />
                   </div>
@@ -239,9 +251,12 @@ const AdminDashboard = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      value={config.platformFee || 50}
-                      onChange={(e) => setConfig({ ...config, platformFee: e.target.value })}
-                      placeholder="50"
+                      value={config.platformFee !== undefined && config.platformFee !== null ? config.platformFee : 0}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : (isNaN(parseFloat(e.target.value)) ? 0 : parseFloat(e.target.value));
+                        setConfig({ ...config, platformFee: val });
+                      }}
+                      placeholder="0"
                       className="h-12 rounded-xl"
                     />
                   </div>
@@ -251,8 +266,11 @@ const AdminDashboard = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      value={config.tax || 0}
-                      onChange={(e) => setConfig({ ...config, tax: e.target.value })}
+                      value={config.tax !== undefined && config.tax !== null ? config.tax : 0}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : (isNaN(parseFloat(e.target.value)) ? 0 : parseFloat(e.target.value));
+                        setConfig({ ...config, tax: val });
+                      }}
                       placeholder="0"
                       className="h-12 rounded-xl"
                     />
@@ -268,6 +286,9 @@ const AdminDashboard = () => {
                           (parseFloat(config.tax) || 0)).toFixed(2)}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    You can set any charge to ₹0 if not applicable
+                  </p>
                 </div>
               </div>
 
@@ -377,15 +398,15 @@ const AdminDashboard = () => {
                       <div className="bg-muted/50 rounded-xl p-4 space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>File Charge:</span>
-                          <span className="font-medium">{formatCurrency(payment.fileCharge || 99)}</span>
+                          <span className="font-medium">{formatCurrency(payment.fileCharge || 0)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Platform Fee:</span>
-                          <span className="font-medium">{formatCurrency(payment.platformFee || 50)}</span>
+                          <span className="font-medium">{formatCurrency(payment.platformFee || 0)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Deposit:</span>
-                          <span className="font-medium">{formatCurrency(payment.depositAmount || 149)}</span>
+                          <span className="font-medium">{formatCurrency(payment.depositAmount || 0)}</span>
                         </div>
                         {payment.tax > 0 && (
                           <div className="flex justify-between text-sm">
@@ -397,7 +418,7 @@ const AdminDashboard = () => {
                         <div className="flex justify-between font-bold">
                           <span>Total:</span>
                           <span className="text-primary text-lg">
-                            {formatCurrency(payment.totalPaymentAmount || (payment.fileCharge || 99) + (payment.platformFee || 50) + (payment.depositAmount || 149) + (payment.tax || 0))}
+                            {formatCurrency(payment.totalPaymentAmount || (payment.fileCharge || 0) + (payment.platformFee || 0) + (payment.depositAmount || 0) + (payment.tax || 0))}
                           </span>
                         </div>
                       </div>

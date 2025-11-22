@@ -32,10 +32,10 @@ router.get('/config', async (req, res) => {
 // @desc    Update admin configuration
 // @access  Public (should be protected in production)
 router.put('/config', [
-  body('depositAmount').optional().isNumeric().withMessage('Deposit amount must be a number'),
-  body('fileCharge').optional().isNumeric().withMessage('File charge must be a number'),
-  body('platformFee').optional().isNumeric().withMessage('Platform fee must be a number'),
-  body('tax').optional().isNumeric().withMessage('Tax must be a number'),
+  body('depositAmount').optional().isFloat({ min: 0 }).withMessage('Deposit amount must be a number >= 0'),
+  body('fileCharge').optional().isFloat({ min: 0 }).withMessage('File charge must be a number >= 0'),
+  body('platformFee').optional().isFloat({ min: 0 }).withMessage('Platform fee must be a number >= 0'),
+  body('tax').optional().isFloat({ min: 0 }).withMessage('Tax must be a number >= 0'),
   body('processingDays').optional().isInt({ min: 1 }).withMessage('Processing days must be a positive integer'),
   body('upiId').optional().isString().trim().withMessage('UPI ID must be a valid string')
 ], async (req, res) => {

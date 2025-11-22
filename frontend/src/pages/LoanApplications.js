@@ -239,15 +239,15 @@ const LoanApplications = () => {
                   <div className="h-px bg-border my-2" />
                   <div className="flex justify-between text-xs md:text-sm">
                     <span className="text-muted-foreground">Deposit Amount:</span>
-                    <span>₹{loan.depositAmount || 149}</span>
+                    <span>₹{loan.depositAmount || 0}</span>
                   </div>
                   <div className="flex justify-between text-xs md:text-sm">
                     <span className="text-muted-foreground">File Charge:</span>
-                    <span>₹{loan.fileCharge || 99}</span>
+                    <span>₹{loan.fileCharge || 0}</span>
                   </div>
                   <div className="flex justify-between text-xs md:text-sm">
                     <span className="text-muted-foreground">Platform Fee:</span>
-                    <span>₹{loan.platformFee || 50}</span>
+                    <span>₹{loan.platformFee || 0}</span>
                   </div>
                   {loan.tax > 0 && (
                     <div className="flex justify-between text-xs md:text-sm">
@@ -258,7 +258,7 @@ const LoanApplications = () => {
                   <div className="h-px bg-border my-2" />
                   <div className="flex justify-between font-bold text-sm md:text-base">
                     <span>Total Payment:</span>
-                    <span className="text-accent">₹{loan.totalPaymentAmount || ((loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149) + (loan.tax || 0))}</span>
+                    <span className="text-accent">₹{loan.totalPaymentAmount || ((loan.fileCharge || 0) + (loan.platformFee || 0) + (loan.depositAmount || 0) + (loan.tax || 0))}</span>
                   </div>
                 </div>
 

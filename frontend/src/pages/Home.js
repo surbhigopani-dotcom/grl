@@ -729,15 +729,15 @@ const Home = () => {
                         <div className="bg-card rounded-xl md:rounded-2xl p-4 md:p-6 border border-border space-y-2 text-xs md:text-sm">
                           <div className="flex justify-between py-1">
                             <span className="text-muted-foreground">File Processing Charge:</span>
-                            <span className="font-bold">₹{currentLoan.fileCharge || 99}</span>
+                            <span className="font-bold">₹{currentLoan.fileCharge || 0}</span>
                           </div>
                           <div className="flex justify-between py-1">
                             <span className="text-muted-foreground">Platform Service Fee:</span>
-                            <span className="font-bold">₹{currentLoan.platformFee || 50}</span>
+                            <span className="font-bold">₹{currentLoan.platformFee || 0}</span>
                           </div>
                           <div className="flex justify-between py-1">
                             <span className="text-muted-foreground">Deposit Amount:</span>
-                            <span className="font-bold">₹{currentLoan.depositAmount || depositAmount}</span>
+                            <span className="font-bold">₹{currentLoan.depositAmount || 0}</span>
                           </div>
                           {currentLoan.tax > 0 && (
                             <div className="flex justify-between py-1">
@@ -748,7 +748,7 @@ const Home = () => {
                           <div className="h-px bg-border my-2 md:my-3" />
                           <div className="flex justify-between text-base md:text-lg pt-1">
                             <span className="font-bold">Total Payment:</span>
-                            <span className="font-bold text-accent">₹{currentLoan.totalPaymentAmount || (currentLoan.fileCharge || 99) + (currentLoan.platformFee || 50) + (currentLoan.depositAmount || depositAmount) + (currentLoan.tax || 0)}</span>
+                            <span className="font-bold text-accent">₹{currentLoan.totalPaymentAmount || ((currentLoan.fileCharge || 0) + (currentLoan.platformFee || 0) + (currentLoan.depositAmount || 0) + (currentLoan.tax || 0))}</span>
                           </div>
                         </div>
                         <Button
@@ -759,7 +759,7 @@ const Home = () => {
                               : 'bg-success hover:bg-success/90 text-success-foreground'
                           }`}
                         >
-                          {currentLoan.paymentStatus === 'failed' ? '🔄 Retry Payment' : '💳 Pay Now'} - ₹{currentLoan.totalPaymentAmount || (currentLoan.fileCharge || 99) + (currentLoan.platformFee || 50) + (currentLoan.depositAmount || depositAmount)}
+                          {currentLoan.paymentStatus === 'failed' ? '🔄 Retry Payment' : '💳 Pay Now'} - ₹{currentLoan.totalPaymentAmount || ((currentLoan.fileCharge || 0) + (currentLoan.platformFee || 0) + (currentLoan.depositAmount || 0) + (currentLoan.tax || 0))}
                         </Button>
                       </>
                     )}

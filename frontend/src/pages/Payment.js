@@ -16,6 +16,7 @@ const Payment = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [upiId, setUpiId] = useState('7211132000@ybl');
+  const [adminConfig, setAdminConfig] = useState(null);
   const [verifying, setVerifying] = useState(false);
   const [paymentVerified, setPaymentVerified] = useState(false);
   const [qrSize, setQrSize] = useState(200);
@@ -42,14 +43,17 @@ const Payment = () => {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
 
-        // Fetch admin config for UPI ID
+        // Fetch admin config for UPI ID and charges
         try {
           const configResponse = await axios.get('/admin/config');
-          if (configResponse.data.config?.upiId) {
-            setUpiId(configResponse.data.config.upiId);
+          if (configResponse.data.config) {
+            setAdminConfig(configResponse.data.config);
+            if (configResponse.data.config.upiId) {
+              setUpiId(configResponse.data.config.upiId);
+            }
           }
         } catch (configError) {
-          console.warn('Failed to fetch UPI ID from config, using default');
+          console.warn('Failed to fetch admin config, using defaults');
         }
 
         // Get loan ID from location state or fetch from API
@@ -142,8 +146,18 @@ const Payment = () => {
     };
   }, [loan, verifying, paymentVerified, navigate]);
 
-  const totalAmount = loan ? (loan.totalPaymentAmount || 
-    (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149.50) + (loan.tax || 0)) : 0;
+  // Calculate total amount using loan values or admin config as fallback
+  const totalAmount = loan ? (() => {
+    if (loan.totalPaymentAmount) {
+      return loan.totalPaymentAmount;
+    }
+    // Use loan values if available, otherwise use admin config, otherwise 0
+    const fileCharge = loan.fileCharge ?? adminConfig?.fileCharge ?? 0;
+    const platformFee = loan.platformFee ?? adminConfig?.platformFee ?? 0;
+    const depositAmount = loan.depositAmount ?? adminConfig?.depositAmount ?? 0;
+    const tax = loan.tax ?? adminConfig?.tax ?? 0;
+    return fileCharge + platformFee + depositAmount + tax;
+  })() : 0;
 
   // Generate UPI payment string for QR code
   const loanId = loan?.loanId || loan?._id?.slice(-8);

@@ -42,7 +42,7 @@ const TransactionHistory = () => {
           return {
             id: loan.paymentId || loan._id,
             loanId: loan.loanId || loan._id?.slice(-8),
-            amount: loan.totalPaymentAmount || (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149),
+            amount: loan.totalPaymentAmount || ((loan.fileCharge || 0) + (loan.platformFee || 0) + (loan.depositAmount || 0) + (loan.tax || 0)),
             status: txnStatus,
             date: loan.paymentAt,
             method: loan.paymentMethod || 'UPI',
