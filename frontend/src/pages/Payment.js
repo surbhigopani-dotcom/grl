@@ -146,16 +146,39 @@ const Payment = () => {
     };
   }, [loan, verifying, paymentVerified, navigate]);
 
-  // Calculate total amount using loan values or admin config as fallback
+  // Calculate total amount - prioritize admin config for approved loans that haven't paid
+  // If loan has payment amounts set, use those; otherwise use current admin config
   const totalAmount = loan ? (() => {
-    if (loan.totalPaymentAmount) {
+    // If loan already has totalPaymentAmount and depositPaid is false, 
+    // it means charges were set but payment not done - use admin config if available
+    if (loan.status === 'approved' && !loan.depositPaid && adminConfig) {
+      // Use current admin config for approved loans that haven't paid yet
+      const fileCharge = adminConfig.fileCharge ?? 0;
+      const platformFee = adminConfig.platformFee ?? 0;
+      const depositAmount = adminConfig.depositAmount ?? 0;
+      const tax = adminConfig.tax ?? 0;
+      return fileCharge + platformFee + depositAmount + tax;
+    }
+    
+    // If loan has totalPaymentAmount, use it
+    if (loan.totalPaymentAmount && loan.totalPaymentAmount > 0) {
       return loan.totalPaymentAmount;
     }
-    // Use loan values if available, otherwise use admin config, otherwise 0
-    const fileCharge = loan.fileCharge ?? adminConfig?.fileCharge ?? 0;
-    const platformFee = loan.platformFee ?? adminConfig?.platformFee ?? 0;
-    const depositAmount = loan.depositAmount ?? adminConfig?.depositAmount ?? 0;
-    const tax = loan.tax ?? adminConfig?.tax ?? 0;
+    
+    // Otherwise calculate from loan values or admin config
+    const fileCharge = (loan.fileCharge !== undefined && loan.fileCharge !== null && loan.fileCharge > 0) 
+      ? loan.fileCharge 
+      : (adminConfig?.fileCharge ?? 0);
+    const platformFee = (loan.platformFee !== undefined && loan.platformFee !== null && loan.platformFee > 0)
+      ? loan.platformFee
+      : (adminConfig?.platformFee ?? 0);
+    const depositAmount = (loan.depositAmount !== undefined && loan.depositAmount !== null && loan.depositAmount > 0)
+      ? loan.depositAmount
+      : (adminConfig?.depositAmount ?? 0);
+    const tax = (loan.tax !== undefined && loan.tax !== null && loan.tax > 0)
+      ? loan.tax
+      : (adminConfig?.tax ?? 0);
+    
     return fileCharge + platformFee + depositAmount + tax;
   })() : 0;
 

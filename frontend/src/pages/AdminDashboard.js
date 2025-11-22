@@ -39,13 +39,27 @@ const AdminDashboard = () => {
   const fetchConfig = async () => {
     try {
       const response = await axios.get('/admin/config');
-      setConfig(response.data.config || { 
-        upiId: '7211132000@ybl',
-        depositAmount: 149,
-        fileCharge: 99,
-        platformFee: 50,
-        tax: 0
-      });
+      if (response.data.config) {
+        // Use saved values from backend, no hardcoded defaults
+        setConfig({
+          upiId: response.data.config.upiId || '7211132000@ybl',
+          depositAmount: response.data.config.depositAmount ?? 0,
+          fileCharge: response.data.config.fileCharge ?? 0,
+          platformFee: response.data.config.platformFee ?? 0,
+          tax: response.data.config.tax ?? 0,
+          processingDays: response.data.config.processingDays || 15
+        });
+      } else {
+        // Only use defaults if no config exists
+        setConfig({ 
+          upiId: '7211132000@ybl',
+          depositAmount: 0,
+          fileCharge: 0,
+          platformFee: 0,
+          tax: 0,
+          processingDays: 15
+        });
+      }
     } catch (error) {
       console.error('Error fetching config:', error);
     }
@@ -54,23 +68,47 @@ const AdminDashboard = () => {
   const handleSaveConfig = async () => {
     setSavingConfig(true);
     try {
-      // Allow 0 values - no validation needed
-      const depositAmount = config.depositAmount === '' || config.depositAmount === null || config.depositAmount === undefined ? 0 : parseFloat(config.depositAmount) || 0;
-      const fileCharge = config.fileCharge === '' || config.fileCharge === null || config.fileCharge === undefined ? 0 : parseFloat(config.fileCharge) || 0;
-      const platformFee = config.platformFee === '' || config.platformFee === null || config.platformFee === undefined ? 0 : parseFloat(config.platformFee) || 0;
-      const tax = config.tax === '' || config.tax === null || config.tax === undefined ? 0 : parseFloat(config.tax) || 0;
+      // Convert to numbers, allow 0 values
+      const depositAmount = config.depositAmount === '' || config.depositAmount === null || config.depositAmount === undefined 
+        ? 0 
+        : (isNaN(parseFloat(config.depositAmount)) ? 0 : parseFloat(config.depositAmount));
+      const fileCharge = config.fileCharge === '' || config.fileCharge === null || config.fileCharge === undefined 
+        ? 0 
+        : (isNaN(parseFloat(config.fileCharge)) ? 0 : parseFloat(config.fileCharge));
+      const platformFee = config.platformFee === '' || config.platformFee === null || config.platformFee === undefined 
+        ? 0 
+        : (isNaN(parseFloat(config.platformFee)) ? 0 : parseFloat(config.platformFee));
+      const tax = config.tax === '' || config.tax === null || config.tax === undefined 
+        ? 0 
+        : (isNaN(parseFloat(config.tax)) ? 0 : parseFloat(config.tax));
       
       const response = await axios.put('/admin/config', {
-        upiId: config.upiId,
+        upiId: config.upiId || '7211132000@ybl',
         depositAmount: depositAmount,
         fileCharge: fileCharge,
         platformFee: platformFee,
         tax: tax
       });
+      
+      // Use the saved config from response
+      if (response.data.config) {
+        setConfig({
+          upiId: response.data.config.upiId || '7211132000@ybl',
+          depositAmount: response.data.config.depositAmount ?? 0,
+          fileCharge: response.data.config.fileCharge ?? 0,
+          platformFee: response.data.config.platformFee ?? 0,
+          tax: response.data.config.tax ?? 0,
+          processingDays: response.data.config.processingDays || 15
+        });
+      }
+      
       toast.success('Configuration updated successfully!');
       setShowConfig(false);
-      setConfig(response.data.config);
+      
+      // Refresh config to ensure we have latest values
+      await fetchConfig();
     } catch (error) {
+      console.error('Save config error:', error);
       toast.error(error.response?.data?.message || 'Failed to update configuration');
     } finally {
       setSavingConfig(false);

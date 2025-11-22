@@ -50,20 +50,21 @@ router.put('/config', [
       config = new AdminConfig();
     }
 
+    // Always update values - don't check for undefined, use the provided values
     if (req.body.depositAmount !== undefined) {
-      config.depositAmount = req.body.depositAmount;
+      config.depositAmount = parseFloat(req.body.depositAmount) || 0;
     }
     if (req.body.fileCharge !== undefined) {
-      config.fileCharge = req.body.fileCharge;
+      config.fileCharge = parseFloat(req.body.fileCharge) || 0;
     }
     if (req.body.platformFee !== undefined) {
-      config.platformFee = req.body.platformFee;
+      config.platformFee = parseFloat(req.body.platformFee) || 0;
     }
     if (req.body.tax !== undefined) {
-      config.tax = req.body.tax;
+      config.tax = parseFloat(req.body.tax) || 0;
     }
     if (req.body.processingDays !== undefined) {
-      config.processingDays = req.body.processingDays;
+      config.processingDays = parseInt(req.body.processingDays) || 15;
     }
     if (req.body.upiId !== undefined) {
       config.upiId = req.body.upiId.trim();
@@ -72,9 +73,11 @@ router.put('/config', [
 
     await config.save();
 
+    // Return the saved config to ensure frontend gets updated values
+    const savedConfig = await AdminConfig.findOne();
     res.json({
       message: 'Configuration updated successfully',
-      config
+      config: savedConfig
     });
   } catch (error) {
     console.error('Update config error:', error);
