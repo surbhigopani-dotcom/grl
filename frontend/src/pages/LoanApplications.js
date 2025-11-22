@@ -249,10 +249,16 @@ const LoanApplications = () => {
                     <span className="text-muted-foreground">Platform Fee:</span>
                     <span>₹{loan.platformFee || 50}</span>
                   </div>
+                  {loan.tax > 0 && (
+                    <div className="flex justify-between text-xs md:text-sm">
+                      <span className="text-muted-foreground">Tax/GST:</span>
+                      <span>₹{loan.tax || 0}</span>
+                    </div>
+                  )}
                   <div className="h-px bg-border my-2" />
                   <div className="flex justify-between font-bold text-sm md:text-base">
                     <span>Total Payment:</span>
-                    <span className="text-accent">₹{loan.totalPaymentAmount || 298}</span>
+                    <span className="text-accent">₹{loan.totalPaymentAmount || ((loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149) + (loan.tax || 0))}</span>
                   </div>
                 </div>
 

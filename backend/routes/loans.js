@@ -212,11 +212,13 @@ router.post('/:loanId/payment', auth, async (req, res) => {
     const fileCharge = config.fileCharge || 99;
     const platformFee = config.platformFee || 50;
     const depositAmount = config.depositAmount || 149;
-    const totalPaymentAmount = fileCharge + platformFee + depositAmount;
+    const tax = config.tax || 0;
+    const totalPaymentAmount = fileCharge + platformFee + depositAmount + tax;
 
     loan.depositAmount = depositAmount;
     loan.fileCharge = fileCharge;
     loan.platformFee = platformFee;
+    loan.tax = tax;
     loan.totalPaymentAmount = totalPaymentAmount;
     loan.depositPaid = true;
     loan.paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

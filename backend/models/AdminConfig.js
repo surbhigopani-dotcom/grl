@@ -13,6 +13,10 @@ const adminConfigSchema = new mongoose.Schema({
     type: Number,
     default: 50 // Platform service fee
   },
+  tax: {
+    type: Number,
+    default: 0 // Tax/GST amount
+  },
   processingDays: {
     type: Number,
     default: 15

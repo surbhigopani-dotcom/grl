@@ -13,7 +13,13 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
   const [showConfig, setShowConfig] = useState(false);
-  const [config, setConfig] = useState({ upiId: '7211132000@ybl' });
+  const [config, setConfig] = useState({ 
+    upiId: '7211132000@ybl',
+    depositAmount: 149,
+    fileCharge: 99,
+    platformFee: 50,
+    tax: 0
+  });
   const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
@@ -33,7 +39,13 @@ const AdminDashboard = () => {
   const fetchConfig = async () => {
     try {
       const response = await axios.get('/admin/config');
-      setConfig(response.data.config || { upiId: '7211132000@ybl' });
+      setConfig(response.data.config || { 
+        upiId: '7211132000@ybl',
+        depositAmount: 149,
+        fileCharge: 99,
+        platformFee: 50,
+        tax: 0
+      });
     } catch (error) {
       console.error('Error fetching config:', error);
     }
@@ -43,13 +55,17 @@ const AdminDashboard = () => {
     setSavingConfig(true);
     try {
       const response = await axios.put('/admin/config', {
-        upiId: config.upiId
+        upiId: config.upiId,
+        depositAmount: parseFloat(config.depositAmount) || 0,
+        fileCharge: parseFloat(config.fileCharge) || 0,
+        platformFee: parseFloat(config.platformFee) || 0,
+        tax: parseFloat(config.tax) || 0
       });
-      toast.success('UPI ID updated successfully!');
+      toast.success('Configuration updated successfully!');
       setShowConfig(false);
       setConfig(response.data.config);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update UPI ID');
+      toast.error(error.response?.data?.message || 'Failed to update configuration');
     } finally {
       setSavingConfig(false);
     }
@@ -141,7 +157,7 @@ const AdminDashboard = () => {
                 className="rounded-xl"
               >
                 <Settings className="w-4 h-4 mr-2" />
-                {showConfig ? 'Hide' : 'UPI'} Settings
+                {showConfig ? 'Hide' : 'Payment'} Settings
               </Button>
               <Button
                 variant="outline"
@@ -166,14 +182,15 @@ const AdminDashboard = () => {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
-        {/* UPI Configuration */}
+        {/* Configuration */}
         {showConfig && (
           <div className="bg-card rounded-3xl p-6 mb-8 border border-border shadow-lg">
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               <Settings className="w-6 h-6" />
-              UPI Configuration
+              Payment Configuration
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* UPI ID */}
               <div>
                 <label className="block text-sm font-medium mb-2">UPI ID</label>
                 <Input
@@ -184,12 +201,79 @@ const AdminDashboard = () => {
                   className="h-12 rounded-xl"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  This UPI ID will be used for all payment transactions. Reference ID (Loan ID) will be automatically included.
+                  This UPI ID will be used for all payment transactions.
                 </p>
               </div>
+
+              {/* Payment Charges */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Payment Charges</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Deposit Amount (₹)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={config.depositAmount || 149}
+                      onChange={(e) => setConfig({ ...config, depositAmount: e.target.value })}
+                      placeholder="149"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">File Charge (₹)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={config.fileCharge || 99}
+                      onChange={(e) => setConfig({ ...config, fileCharge: e.target.value })}
+                      placeholder="99"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Platform Fee (₹)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={config.platformFee || 50}
+                      onChange={(e) => setConfig({ ...config, platformFee: e.target.value })}
+                      placeholder="50"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Tax/GST (₹)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={config.tax || 0}
+                      onChange={(e) => setConfig({ ...config, tax: e.target.value })}
+                      placeholder="0"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 p-4 bg-muted/50 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total Payment Amount:</span>
+                    <span className="text-lg font-bold text-primary">
+                      ₹{((parseFloat(config.depositAmount) || 0) + 
+                          (parseFloat(config.fileCharge) || 0) + 
+                          (parseFloat(config.platformFee) || 0) + 
+                          (parseFloat(config.tax) || 0)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <Button
                 onClick={handleSaveConfig}
-                className="gradient-primary text-primary-foreground rounded-xl"
+                className="gradient-primary text-primary-foreground rounded-xl w-full"
                 disabled={savingConfig}
               >
                 {savingConfig ? (
@@ -200,7 +284,7 @@ const AdminDashboard = () => {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save UPI ID
+                    Save Configuration
                   </>
                 )}
               </Button>
@@ -303,11 +387,17 @@ const AdminDashboard = () => {
                           <span>Deposit:</span>
                           <span className="font-medium">{formatCurrency(payment.depositAmount || 149)}</span>
                         </div>
+                        {payment.tax > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span>Tax/GST:</span>
+                            <span className="font-medium">{formatCurrency(payment.tax || 0)}</span>
+                          </div>
+                        )}
                         <div className="h-px bg-border my-2" />
                         <div className="flex justify-between font-bold">
                           <span>Total:</span>
                           <span className="text-primary text-lg">
-                            {formatCurrency(payment.totalPaymentAmount || (payment.fileCharge || 99) + (payment.platformFee || 50) + (payment.depositAmount || 149))}
+                            {formatCurrency(payment.totalPaymentAmount || (payment.fileCharge || 99) + (payment.platformFee || 50) + (payment.depositAmount || 149) + (payment.tax || 0))}
                           </span>
                         </div>
                       </div>

@@ -739,10 +739,16 @@ const Home = () => {
                             <span className="text-muted-foreground">Deposit Amount:</span>
                             <span className="font-bold">₹{currentLoan.depositAmount || depositAmount}</span>
                           </div>
+                          {currentLoan.tax > 0 && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-muted-foreground">Tax/GST:</span>
+                              <span className="font-bold">₹{currentLoan.tax || 0}</span>
+                            </div>
+                          )}
                           <div className="h-px bg-border my-2 md:my-3" />
                           <div className="flex justify-between text-base md:text-lg pt-1">
                             <span className="font-bold">Total Payment:</span>
-                            <span className="font-bold text-accent">₹{currentLoan.totalPaymentAmount || (currentLoan.fileCharge || 99) + (currentLoan.platformFee || 50) + (currentLoan.depositAmount || depositAmount)}</span>
+                            <span className="font-bold text-accent">₹{currentLoan.totalPaymentAmount || (currentLoan.fileCharge || 99) + (currentLoan.platformFee || 50) + (currentLoan.depositAmount || depositAmount) + (currentLoan.tax || 0)}</span>
                           </div>
                         </div>
                         <Button

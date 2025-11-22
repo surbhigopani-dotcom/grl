@@ -143,7 +143,7 @@ const Payment = () => {
   }, [loan, verifying, paymentVerified, navigate]);
 
   const totalAmount = loan ? (loan.totalPaymentAmount || 
-    (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149.50)) : 0;
+    (loan.fileCharge || 99) + (loan.platformFee || 50) + (loan.depositAmount || 149.50) + (loan.tax || 0)) : 0;
 
   // Generate UPI payment string for QR code
   const loanId = loan?.loanId || loan?._id?.slice(-8);

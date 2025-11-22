@@ -12,7 +12,10 @@ router.get('/config', async (req, res) => {
     let config = await AdminConfig.findOne();
     if (!config) {
       config = new AdminConfig({ 
-        depositAmount: 149, 
+        depositAmount: 149,
+        fileCharge: 99,
+        platformFee: 50,
+        tax: 0,
         processingDays: 15,
         upiId: '7211132000@ybl'
       });
@@ -30,6 +33,9 @@ router.get('/config', async (req, res) => {
 // @access  Public (should be protected in production)
 router.put('/config', [
   body('depositAmount').optional().isNumeric().withMessage('Deposit amount must be a number'),
+  body('fileCharge').optional().isNumeric().withMessage('File charge must be a number'),
+  body('platformFee').optional().isNumeric().withMessage('Platform fee must be a number'),
+  body('tax').optional().isNumeric().withMessage('Tax must be a number'),
   body('processingDays').optional().isInt({ min: 1 }).withMessage('Processing days must be a positive integer'),
   body('upiId').optional().isString().trim().withMessage('UPI ID must be a valid string')
 ], async (req, res) => {
@@ -46,6 +52,15 @@ router.put('/config', [
 
     if (req.body.depositAmount !== undefined) {
       config.depositAmount = req.body.depositAmount;
+    }
+    if (req.body.fileCharge !== undefined) {
+      config.fileCharge = req.body.fileCharge;
+    }
+    if (req.body.platformFee !== undefined) {
+      config.platformFee = req.body.platformFee;
+    }
+    if (req.body.tax !== undefined) {
+      config.tax = req.body.tax;
     }
     if (req.body.processingDays !== undefined) {
       config.processingDays = req.body.processingDays;
