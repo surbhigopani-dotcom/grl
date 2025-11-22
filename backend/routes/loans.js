@@ -63,10 +63,30 @@ router.post('/apply', auth, [
             approvedAmount = 20000;
           }
 
+          // Get current admin config for charges
+          const AdminConfig = require('../models/AdminConfig');
+          let config = await AdminConfig.findOne();
+          if (!config) {
+            config = new AdminConfig({ 
+              depositAmount: 0,
+              fileCharge: 0,
+              platformFee: 0,
+              tax: 0,
+              processingDays: 15
+            });
+            await config.save();
+          }
+
+          // Set charges from admin config when loan is approved
           updatedLoan.status = 'approved';
           updatedLoan.approvedAmount = approvedAmount;
           updatedLoan.approvedAt = new Date();
-          updatedLoan.paymentStatus = 'pending'; // Payment status pending
+          updatedLoan.paymentStatus = 'pending';
+          updatedLoan.depositAmount = config.depositAmount ?? 0;
+          updatedLoan.fileCharge = config.fileCharge ?? 0;
+          updatedLoan.platformFee = config.platformFee ?? 0;
+          updatedLoan.tax = config.tax ?? 0;
+          updatedLoan.totalPaymentAmount = (config.depositAmount ?? 0) + (config.fileCharge ?? 0) + (config.platformFee ?? 0) + (config.tax ?? 0);
           await updatedLoan.save();
 
           // Update user statistics
@@ -129,10 +149,30 @@ router.post('/:loanId/validate', auth, async (req, res) => {
             approvedAmount = 30000;
           }
 
+          // Get current admin config for charges
+          const AdminConfig = require('../models/AdminConfig');
+          let config = await AdminConfig.findOne();
+          if (!config) {
+            config = new AdminConfig({ 
+              depositAmount: 0,
+              fileCharge: 0,
+              platformFee: 0,
+              tax: 0,
+              processingDays: 15
+            });
+            await config.save();
+          }
+
+          // Set charges from admin config when loan is approved
           updatedLoan.status = 'approved';
           updatedLoan.approvedAmount = approvedAmount;
           updatedLoan.approvedAt = new Date();
-          updatedLoan.paymentStatus = 'pending'; // Set payment status to pending
+          updatedLoan.paymentStatus = 'pending';
+          updatedLoan.depositAmount = config.depositAmount ?? 0;
+          updatedLoan.fileCharge = config.fileCharge ?? 0;
+          updatedLoan.platformFee = config.platformFee ?? 0;
+          updatedLoan.tax = config.tax ?? 0;
+          updatedLoan.totalPaymentAmount = (config.depositAmount ?? 0) + (config.fileCharge ?? 0) + (config.platformFee ?? 0) + (config.tax ?? 0);
           await updatedLoan.save();
 
           // Update user statistics
@@ -200,19 +240,20 @@ router.post('/:loanId/payment', auth, async (req, res) => {
     let config = await AdminConfig.findOne();
     if (!config) {
       config = new AdminConfig({ 
-        depositAmount: 149,
-        fileCharge: 99,
-        platformFee: 50,
+        depositAmount: 0,
+        fileCharge: 0,
+        platformFee: 0,
+        tax: 0,
         processingDays: 15
       });
       await config.save();
     }
 
-    // Calculate total payment amount
-    const fileCharge = config.fileCharge || 99;
-    const platformFee = config.platformFee || 50;
-    const depositAmount = config.depositAmount || 149;
-    const tax = config.tax || 0;
+    // Calculate total payment amount - use config values directly (no fallbacks)
+    const fileCharge = config.fileCharge ?? 0;
+    const platformFee = config.platformFee ?? 0;
+    const depositAmount = config.depositAmount ?? 0;
+    const tax = config.tax ?? 0;
     const totalPaymentAmount = fileCharge + platformFee + depositAmount + tax;
 
     loan.depositAmount = depositAmount;

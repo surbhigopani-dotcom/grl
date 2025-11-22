@@ -12,9 +12,9 @@ router.get('/config', async (req, res) => {
     let config = await AdminConfig.findOne();
     if (!config) {
       config = new AdminConfig({ 
-        depositAmount: 149,
-        fileCharge: 99,
-        platformFee: 50,
+        depositAmount: 0,
+        fileCharge: 0,
+        platformFee: 0,
         tax: 0,
         processingDays: 15,
         upiId: '7211132000@ybl'

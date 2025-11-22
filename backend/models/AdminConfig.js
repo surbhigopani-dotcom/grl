@@ -3,15 +3,15 @@ const mongoose = require('mongoose');
 const adminConfigSchema = new mongoose.Schema({
   depositAmount: {
     type: Number,
-    default: 149
+    default: 0
   },
   fileCharge: {
     type: Number,
-    default: 99 // File processing charge
+    default: 0 // File processing charge
   },
   platformFee: {
     type: Number,
-    default: 50 // Platform service fee
+    default: 0 // Platform service fee
   },
   tax: {
     type: Number,
