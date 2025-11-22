@@ -729,20 +729,25 @@ const Home = () => {
                       </div>
                     )}
                     {currentLoan.status !== 'payment_validation' && (() => {
-                      // For approved loans that haven't paid, use admin config if loan values are 0 or not set
+                      // For approved loans that haven't paid, always use admin config if available
+                      // Otherwise use loan values
                       const isApprovedNotPaid = currentLoan.status === 'approved' && !currentLoan.depositPaid;
-                      const fileCharge = isApprovedNotPaid && (!currentLoan.fileCharge || currentLoan.fileCharge === 0)
-                        ? (adminConfig?.fileCharge ?? 0)
-                        : (currentLoan.fileCharge ?? 0);
-                      const platformFee = isApprovedNotPaid && (!currentLoan.platformFee || currentLoan.platformFee === 0)
-                        ? (adminConfig?.platformFee ?? 0)
-                        : (currentLoan.platformFee ?? 0);
-                      const depositAmt = isApprovedNotPaid && (!currentLoan.depositAmount || currentLoan.depositAmount === 0)
-                        ? (adminConfig?.depositAmount ?? 0)
-                        : (currentLoan.depositAmount ?? 0);
-                      const tax = isApprovedNotPaid && (!currentLoan.tax || currentLoan.tax === 0)
-                        ? (adminConfig?.tax ?? 0)
-                        : (currentLoan.tax ?? 0);
+                      
+                      // Use admin config for approved loans that haven't paid, otherwise use loan values
+                      const fileCharge = isApprovedNotPaid && adminConfig
+                        ? (adminConfig.fileCharge ?? 0)
+                        : (currentLoan.fileCharge ?? (adminConfig?.fileCharge ?? 0));
+                      const platformFee = isApprovedNotPaid && adminConfig
+                        ? (adminConfig.platformFee ?? 0)
+                        : (currentLoan.platformFee ?? (adminConfig?.platformFee ?? 0));
+                      const depositAmt = isApprovedNotPaid && adminConfig
+                        ? (adminConfig.depositAmount ?? 0)
+                        : (currentLoan.depositAmount ?? (adminConfig?.depositAmount ?? 0));
+                      const tax = isApprovedNotPaid && adminConfig
+                        ? (adminConfig.tax ?? 0)
+                        : (currentLoan.tax ?? (adminConfig?.tax ?? 0));
+                      
+                      // Calculate total - use loan totalPaymentAmount if it exists and is > 0, otherwise calculate
                       const totalPayment = currentLoan.totalPaymentAmount && currentLoan.totalPaymentAmount > 0
                         ? currentLoan.totalPaymentAmount
                         : (fileCharge + platformFee + depositAmt + tax);

@@ -139,13 +139,16 @@ loanSchema.pre('save', async function(next) {
       // Get the count of all loans to generate unique ID
       const LoanModel = mongoose.model('Loan');
       const count = await LoanModel.countDocuments();
-      this.loanId = `LOAN${String(count + 1).padStart(8, '0')}`;
+      // Start from 100000 (1 lakh)
+      const startNumber = 100000;
+      const nextNumber = startNumber + count;
+      this.loanId = `LOAN${String(nextNumber).padStart(8, '0')}`;
       
       // Ensure uniqueness by checking if ID exists
       let exists = await LoanModel.findOne({ loanId: this.loanId });
       let counter = 1;
       while (exists && counter < 1000) {
-        this.loanId = `LOAN${String(count + 1 + counter).padStart(8, '0')}`;
+        this.loanId = `LOAN${String(nextNumber + counter).padStart(8, '0')}`;
         exists = await LoanModel.findOne({ loanId: this.loanId });
         counter++;
       }

@@ -34,7 +34,9 @@ router.post('/apply', auth, [
     if (!loan.loanId) {
       // Fallback: generate manually if hook failed
       const count = await Loan.countDocuments();
-      loan.loanId = `LOAN${String(count + 1).padStart(8, '0')}`;
+      const startNumber = 100000;
+      const nextNumber = startNumber + count;
+      loan.loanId = `LOAN${String(nextNumber).padStart(8, '0')}`;
       await loan.save();
     }
 
