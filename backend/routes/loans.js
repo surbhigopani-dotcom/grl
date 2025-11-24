@@ -230,7 +230,8 @@ router.post('/:loanId/payment', auth, async (req, res) => {
       return res.status(404).json({ message: 'Loan application not found' });
     }
 
-    if (loan.status !== 'signature_pending' && loan.status !== 'payment_pending') {
+    // Allow payment for signature_pending, payment_pending, or payment_failed (retry)
+    if (loan.status !== 'signature_pending' && loan.status !== 'payment_pending' && loan.status !== 'payment_failed') {
       return res.status(400).json({ message: 'Loan must be signed before payment' });
     }
 
@@ -238,8 +239,17 @@ router.post('/:loanId/payment', auth, async (req, res) => {
       return res.status(400).json({ message: 'Digital signature is required before payment' });
     }
 
-    if (loan.depositPaid) {
+    // Allow retry for payment_failed loans even if depositPaid is true
+    if (loan.depositPaid && loan.status !== 'payment_failed') {
       return res.status(400).json({ message: 'Deposit already paid' });
+    }
+    
+    // Reset payment fields for payment_failed retry
+    if (loan.status === 'payment_failed') {
+      loan.depositPaid = false;
+      loan.paymentStatus = 'pending';
+      loan.paymentId = '';
+      loan.paymentAt = null;
     }
 
     // Get admin config for charges

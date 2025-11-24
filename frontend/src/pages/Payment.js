@@ -60,16 +60,45 @@ const Payment = () => {
         if (location.state?.loanId) {
           try {
             const response = await axios.get(`/loans/${location.state.loanId}`);
-            setLoan(response.data.loan);
+            const loanData = response.data.loan;
+            
+            // Validate loan can proceed with payment
+            if (!loanData) {
+              throw new Error('Loan not found');
+            }
+            
+            // Check if loan is in a valid state for payment
+            const validStatuses = ['signature_pending', 'payment_pending', 'payment_failed'];
+            if (!validStatuses.includes(loanData.status)) {
+              toast.error('This loan is not ready for payment');
+              navigate('/home');
+              return;
+            }
+            
+            // Check if digital signature exists
+            if (!loanData.digitalSignature) {
+              toast.error('Please complete digital signature first');
+              navigate('/sanction-letter', { state: { loanId: loanData.id || loanData._id } });
+              return;
+            }
+            
+            // Check if payment already done (allow retry for payment_failed)
+            if (loanData.depositPaid && loanData.status !== 'payment_failed' && loanData.status !== 'payment_validation') {
+              toast.info('Payment already completed');
+              navigate('/home');
+              return;
+            }
+            
+            setLoan(loanData);
           } catch (loanError) {
-            if (loanError.response?.status === 404) {
+            if (loanError.response?.status === 404 || loanError.message === 'Loan not found') {
               console.warn('Loan not found, fetching latest approved loan...');
               const loansResponse = await axios.get('/loans');
               const loans = loansResponse.data.loans || [];
               const approvedLoan = loans.find(l => 
-                (l.status === 'signature_pending' || l.status === 'payment_pending') && 
+                (l.status === 'signature_pending' || l.status === 'payment_pending' || l.status === 'payment_failed') && 
                 l.digitalSignature && 
-                !l.depositPaid
+                (l.status === 'payment_failed' || !l.depositPaid) // Allow payment_failed even if depositPaid is true (retry)
               );
               if (approvedLoan) {
                 setLoan(approvedLoan);
@@ -86,9 +115,9 @@ const Payment = () => {
           const loansResponse = await axios.get('/loans');
           const loans = loansResponse.data.loans || [];
           const approvedLoan = loans.find(l => 
-            (l.status === 'signature_pending' || l.status === 'payment_pending') && 
+            (l.status === 'signature_pending' || l.status === 'payment_pending' || l.status === 'payment_failed') && 
             l.digitalSignature && 
-            !l.depositPaid
+            (l.status === 'payment_failed' || !l.depositPaid) // Allow payment_failed even if depositPaid is true (retry)
           );
           if (approvedLoan) {
             setLoan(approvedLoan);
