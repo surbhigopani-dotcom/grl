@@ -106,9 +106,14 @@ const Home = () => {
       setUserLoans(loans);
       
       // Set current loan (most recent active loan - priority order)
-      const activeLoan = loans.find(loan => 
-        ['pending', 'validating', 'approved', 'tenure_selection', 'sanction_letter_viewed', 'signature_pending', 'payment_pending', 'payment_validation', 'payment_failed', 'processing'].includes(loan.status)
-      ) || loans[0];
+      // Priority: payment_failed > payment_pending > payment_validation > processing > others
+      const activeLoan = loans.find(loan => loan.status === 'payment_failed') ||
+                         loans.find(loan => loan.status === 'payment_pending') ||
+                         loans.find(loan => loan.status === 'payment_validation') ||
+                         loans.find(loan => loan.status === 'processing') ||
+                         loans.find(loan => 
+                           ['pending', 'validating', 'approved', 'tenure_selection', 'sanction_letter_viewed', 'signature_pending'].includes(loan.status)
+                         ) || loans[0];
       
       if (activeLoan) {
         setCurrentLoan(activeLoan);

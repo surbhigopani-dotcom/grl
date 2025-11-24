@@ -51,9 +51,17 @@ const LoanApplications = () => {
     switch (status) {
       case "approved": return "bg-success text-success-foreground";
       case "pending": return "bg-warning text-warning-foreground";
+      case "validating": return "bg-info text-info-foreground";
+      case "tenure_selection": return "bg-info text-info-foreground";
+      case "sanction_letter_viewed": return "bg-info text-info-foreground";
+      case "signature_pending": return "bg-warning text-warning-foreground";
+      case "payment_pending": return "bg-warning text-warning-foreground";
+      case "payment_validation": return "bg-processing text-processing-foreground";
+      case "payment_failed": return "bg-error text-error-foreground";
       case "processing": return "bg-processing text-processing-foreground";
       case "completed": return "bg-success text-success-foreground";
       case "rejected": return "bg-error text-error-foreground";
+      case "cancelled": return "bg-muted text-muted-foreground";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -63,12 +71,18 @@ const LoanApplications = () => {
       pending: 'Pending',
       validating: 'Validating',
       approved: 'Approved',
+      tenure_selection: 'Tenure Selection',
+      sanction_letter_viewed: 'Sanction Letter Viewed',
+      signature_pending: 'Signature Pending',
       payment_pending: 'Payment Pending',
+      payment_validation: 'Payment Under Review',
+      payment_failed: 'Payment Failed',
       processing: 'Processing',
       completed: 'Completed',
-      rejected: 'Rejected'
+      rejected: 'Rejected',
+      cancelled: 'Cancelled'
     };
-    return texts[status] || status;
+    return texts[status] || status.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
   };
 
   const formatDate = (date) => {
@@ -217,15 +231,7 @@ const LoanApplications = () => {
                     <div className="text-xs md:text-sm text-muted-foreground mb-1">Loan ID</div>
                     <div className="font-bold text-base md:text-lg">{loan.loanId || loan._id?.slice(-8)}</div>
                   </div>
-                  <div className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold ${
-                    loan.status === 'processing' ? 'bg-green-500 text-white' :
-                    loan.status === 'approved' ? 'bg-[#14b8a6] text-white' :
-                    loan.status === 'completed' ? 'bg-green-500 text-white' :
-                    loan.status === 'rejected' ? 'bg-red-500 text-white' :
-                    loan.status === 'payment_validation' ? 'bg-blue-500 text-white' :
-                    loan.status === 'payment_pending' ? 'bg-yellow-500 text-white' :
-                    'bg-gray-500 text-white'
-                  }`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  <div className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold ${getStatusColor(loan.status)}`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                     {getStatusText(loan.status).toUpperCase()}
                   </div>
                 </div>
@@ -302,7 +308,7 @@ const LoanApplications = () => {
                 </div>
 
                 {/* Sanction Letter View Button */}
-                {(loan.status === 'tenure_selection' || loan.status === 'sanction_letter_viewed' || loan.status === 'signature_pending' || loan.status === 'payment_pending' || loan.status === 'payment_validation' || loan.status === 'processing' || loan.status === 'completed') && loan.approvedAmount > 0 && (
+                {(loan.status === 'tenure_selection' || loan.status === 'sanction_letter_viewed' || loan.status === 'signature_pending' || loan.status === 'payment_pending' || loan.status === 'payment_validation' || loan.status === 'payment_failed' || loan.status === 'processing' || loan.status === 'completed') && loan.approvedAmount > 0 && (
                   <div className="mb-4 md:mb-6">
                     <Button
                       onClick={() => navigate('/sanction-letter', { state: { loanId: loan._id || loan.id } })}
@@ -311,6 +317,45 @@ const LoanApplications = () => {
                     >
                       <FileText className="w-4 h-4 mr-2" />
                       View Sanction Letter
+                    </Button>
+                  </div>
+                )}
+
+                {/* Payment Failed - Complete Payment Button */}
+                {loan.status === 'payment_failed' && loan.approvedAmount > 0 && (
+                  <div className="mb-4 md:mb-6">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5">⚠️</div>
+                        <div>
+                          <p className="text-sm font-semibold text-red-800 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                            Payment Failed
+                          </p>
+                          <p className="text-xs text-red-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                            Your payment could not be verified. Please complete the payment to proceed with your loan application.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => navigate('/payment', { state: { loanId: loan._id || loan.id } })}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white rounded-xl h-10 md:h-11 text-sm md:text-base font-semibold"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                    >
+                      Complete Payment Now
+                    </Button>
+                  </div>
+                )}
+
+                {/* Payment Pending Button */}
+                {loan.status === 'payment_pending' && loan.digitalSignature && !loan.depositPaid && (
+                  <div className="mb-4 md:mb-6">
+                    <Button
+                      onClick={() => navigate('/payment', { state: { loanId: loan._id || loan.id } })}
+                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl h-10 md:h-11 text-sm md:text-base font-semibold"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                    >
+                      Complete Payment
                     </Button>
                   </div>
                 )}
