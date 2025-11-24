@@ -113,9 +113,10 @@ const ProfileSetup = () => {
       return;
     }
 
-    // Validate file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error('File size should be less than 50MB');
+    // Validate file size (max 100MB for better Android compatibility)
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+      toast.error('File size should be less than 100MB');
       return;
     }
 
@@ -161,7 +162,7 @@ const ProfileSetup = () => {
         const errorMessage = error.response.data?.message || 'Failed to upload document';
         // Check if error message contains file size info
         if (errorMessage.toLowerCase().includes('file size') || errorMessage.toLowerCase().includes('too large')) {
-          toast.error('File size too large. Maximum size is 50MB.');
+          toast.error('File size too large. Maximum size is 100MB.');
         } else {
           toast.error(errorMessage);
         }
@@ -556,7 +557,7 @@ const ProfileSetup = () => {
                           <>
                             <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
                             <span className="text-sm font-medium text-[#14b8a6]">Click to upload Aadhar Card</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 50MB)</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 100MB)</span>
                           </>
                         )}
                       </label>
@@ -617,7 +618,7 @@ const ProfileSetup = () => {
                           <>
                             <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
                             <span className="text-sm font-medium text-[#14b8a6]">Click to upload PAN Card</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 50MB)</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 100MB)</span>
                           </>
                         )}
                       </label>
@@ -656,33 +657,74 @@ const ProfileSetup = () => {
                       </div>
                     </div>
                   ) : (
-                    <div>
+                    <div className="space-y-3">
+                      {/* Hidden input for file selection */}
                       <input
                         ref={selfieInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'selfie')}
+                        className="hidden"
+                        id="selfie-upload"
+                      />
+                      
+                      {/* Camera Option */}
+                      <input
                         type="file"
                         accept="image/*"
                         capture="user"
                         onChange={(e) => handleFileChange(e, 'selfie')}
                         className="hidden"
-                        id="selfie-upload"
+                        id="selfie-camera"
                       />
-                      <label
-                        htmlFor="selfie-upload"
-                        className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
-                      >
-                        {uploading.selfie ? (
-                          <div className="text-center">
-                            <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                            <span className="text-sm text-[#14b8a6]">Uploading...</span>
-                          </div>
-                        ) : (
-                          <>
-                            <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
-                            <span className="text-sm font-medium text-[#14b8a6]">Click to upload Selfie</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 50MB)</span>
-                          </>
-                        )}
-                      </label>
+                      
+                      {/* Gallery Option */}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'selfie')}
+                        className="hidden"
+                        id="selfie-gallery"
+                      />
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Camera Button */}
+                        <label
+                          htmlFor="selfie-camera"
+                          className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
+                        >
+                          {uploading.selfie ? (
+                            <div className="text-center">
+                              <div className="w-6 h-6 border-3 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
+                              <span className="text-xs text-[#14b8a6]">Uploading...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="w-6 h-6 text-[#14b8a6] mb-1" />
+                              <span className="text-xs font-medium text-[#14b8a6] text-center">Take Photo</span>
+                            </>
+                          )}
+                        </label>
+                        
+                        {/* Gallery Button */}
+                        <label
+                          htmlFor="selfie-gallery"
+                          className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
+                        >
+                          {uploading.selfie ? (
+                            <div className="text-center">
+                              <div className="w-6 h-6 border-3 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
+                              <span className="text-xs text-[#14b8a6]">Uploading...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <FileImage className="w-6 h-6 text-[#14b8a6] mb-1" />
+                              <span className="text-xs font-medium text-[#14b8a6] text-center">Choose from Gallery</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 text-center">JPEG, PNG, or WebP (Max 100MB)</p>
                     </div>
                   )}
                 </div>

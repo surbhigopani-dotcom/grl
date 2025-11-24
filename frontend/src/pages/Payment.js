@@ -112,78 +112,8 @@ const Payment = () => {
     loadLoanData();
   }, [location.state, navigate]);
 
-  // Auto-verify payment status
-  useEffect(() => {
-    if (!loan || paymentVerified) return;
-
-    const checkPaymentStatus = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        const response = await axios.get(`/loans/${loan.id || loan._id}/status`, {
-          skipErrorToast: true
-        });
-        const updatedLoan = response.data.loan;
-
-        if (updatedLoan.status === 'payment_validation' || updatedLoan.status === 'processing') {
-          // Only show notification if not already verified (prevent duplicate)
-          if (!paymentVerified) {
-            setPaymentVerified(true);
-            setVerifying(false);
-            // Dismiss any existing toasts and show single success notification
-            toast.dismiss();
-            toast.success('✅ Payment verified successfully!', { autoClose: 3000 });
-          }
-          
-          // Check if user has bank details, if not navigate to bank details page
-          // Fetch user to check bank details
-          try {
-            const userResponse = await axios.get('/auth/me');
-            const userData = userResponse.data.user;
-            
-            // Check if bank details are missing
-            if (!userData.bankAccountNumber || !userData.ifscCode) {
-              // Navigate to bank details page after 2 seconds
-              setTimeout(() => {
-                navigate('/bank-details', { 
-                  state: { 
-                    paymentSuccess: true, 
-                    loanId: loan.id || loan._id,
-                    message: 'Please provide your bank details to receive the loan amount. Funds will be disbursed within 15 days after payment verification.'
-                  } 
-                });
-              }, 2000);
-            } else {
-              // Bank details already provided, navigate to home
-              setTimeout(() => {
-                navigate('/home', { state: { paymentSuccess: true, loanId: loan.id || loan._id } });
-              }, 2000);
-            }
-          } catch (userError) {
-            // If user fetch fails, just navigate to home
-            setTimeout(() => {
-              navigate('/home', { state: { paymentSuccess: true, loanId: loan.id || loan._id } });
-            }, 2000);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking payment status:', error);
-      }
-    };
-
-    // Check payment status every 5 seconds if verifying
-    let interval = null;
-    if (verifying) {
-      interval = setInterval(checkPaymentStatus, 5000);
-      // Also check immediately
-      checkPaymentStatus();
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [loan, verifying, paymentVerified, navigate]);
+  // Auto-verify payment status - REMOVED to prevent duplicate notifications
+  // Payment verification is now handled only in handleVerifyPayment function
 
   // Calculate total amount - prioritize admin config for approved loans that haven't paid
   // If loan has payment amounts set, use those; otherwise use current admin config
@@ -476,22 +406,27 @@ const Payment = () => {
         }
       };
 
-      // Check status immediately and then every 3 seconds
+      // Check status immediately and then every 3 seconds (max 10 times = 30 seconds)
+      let checkCount = 0;
+      const maxChecks = 10;
+      
+      // First check immediately
       checkStatus();
+      
       const interval = setInterval(() => {
-        checkStatus();
-      }, 3000);
-
-      // Stop checking after 30 seconds
-      setTimeout(() => {
-        clearInterval(interval);
-        if (!paymentVerified) {
-          setVerifying(false);
-          // Only show info if payment not verified yet
-          toast.dismiss();
-          toast.info('Payment verification in progress. You will be notified once verified.', { autoClose: 4000 });
+        checkCount++;
+        if (checkCount >= maxChecks || paymentVerified) {
+          clearInterval(interval);
+          if (!paymentVerified) {
+            setVerifying(false);
+            // Only show info if payment not verified yet
+            toast.dismiss();
+            toast.info('Payment verification in progress. You will be notified once verified.', { autoClose: 4000 });
+          }
+        } else {
+          checkStatus();
         }
-      }, 30000);
+      }, 3000);
 
     } catch (error) {
       setVerifying(false);

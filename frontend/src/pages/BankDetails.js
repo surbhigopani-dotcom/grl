@@ -19,12 +19,56 @@ const BankDetails = () => {
     accountHolderName: user?.accountHolderName || user?.name || ''
   });
 
-  // Show message if redirected from payment completion
-  React.useEffect(() => {
-    if (location.state?.message) {
-      toast.info(location.state.message, { autoClose: 5000 });
-    }
-  }, [location.state]);
+  // Check if user has completed payment - only allow bank details after payment
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      try {
+        // If redirected from payment, allow access
+        if (location.state?.paymentSuccess) {
+          if (location.state?.message) {
+            toast.info(location.state.message, { autoClose: 5000 });
+          }
+          return;
+        }
+
+        // Check if user has any loan with payment completed
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        
+        if (!axios.defaults.headers.common['Authorization']) {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+
+        const loansResponse = await axios.get('/loans');
+        const loans = loansResponse.data.loans || [];
+        
+        // Check if user has any loan with payment completed (processing or completed status)
+        const hasPaymentCompleted = loans.some(loan => 
+          loan.depositPaid || 
+          loan.status === 'processing' || 
+          loan.status === 'payment_validation' ||
+          loan.status === 'completed'
+        );
+
+        // If no payment completed, redirect to home
+        if (!hasPaymentCompleted && !user?.bankAccountNumber) {
+          toast.error('Please complete payment first to add bank details');
+          navigate('/home');
+        }
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+        // If error, allow access if user already has bank details
+        if (!user?.bankAccountNumber) {
+          navigate('/home');
+        }
+      }
+    };
+
+    checkPaymentStatus();
+  }, [location.state, navigate, user]);
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
