@@ -1,12 +1,40 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { ArrowRight, Shield, Smartphone, Zap, Lock, CheckCircle, Target } from 'lucide-react';
+import cityscapeImage from '../img/cityScapeMsite.a5d03026.png';
+import { 
+  Menu, 
+  X, 
+  ArrowRight, 
+  Shield, 
+  Smartphone, 
+  Zap, 
+  Lock, 
+  CheckCircle, 
+  Target,
+  GraduationCap,
+  TrendingUp,
+  DollarSign,
+  FileText,
+  HelpCircle,
+  Mail,
+  Phone,
+  MapPin,
+  Twitter,
+  Linkedin,
+  Youtube,
+  Instagram,
+  Apple,
+  Play
+} from 'lucide-react';
+import './Landing.css';
 
 const Landing = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showMoreProducts, setShowMoreProducts] = useState(false);
 
   const handleGetStarted = () => {
     if (user) {
@@ -15,6 +43,13 @@ const Landing = () => {
       navigate('/login');
     }
   };
+
+  const loanTypes = [
+    { icon: <TrendingUp className="w-6 h-6" />, title: "Personal Loans", desc: "Quick funds for your needs" },
+    { icon: <DollarSign className="w-6 h-6" />, title: "Business Loans", desc: "Grow your business" },
+    { icon: <FileText className="w-6 h-6" />, title: "Home Loans", desc: "Your dream home awaits" },
+    { icon: <Target className="w-6 h-6" />, title: "Education Loans", desc: "Invest in your future" }
+  ];
 
   const features = [
     {
@@ -36,264 +71,381 @@ const Landing = () => {
       icon: <Target className="w-8 h-8" />,
       title: "Flexible Amounts",
       description: "Borrow anywhere from ₹10,000 to ₹5,00,000"
-    },
-    {
-      icon: <CheckCircle className="w-8 h-8" />,
-      title: "Easy Process",
-      description: "Simple 3-step application form, no paperwork hassle"
-    },
-    {
-      icon: <Shield className="w-8 h-8" />,
-      title: "High Approval",
-      description: "99% approval rate with transparent eligibility criteria"
-    }
-  ];
-
-  const stats = [
-    { value: "10K+", label: "Happy Customers" },
-    { value: "₹50Cr+", label: "Loans Disbursed" },
-    { value: "1 Min", label: "Approval Time" },
-    { value: "99%", label: "Approval Rate" }
-  ];
-
-  const loanDetails = [
-    { label: "Loan Amount", value: "₹10,000 - ₹5,00,000" },
-    { label: "Processing Time", value: "15 Days" },
-    { label: "File Processing Charge", value: "₹99" },
-    { label: "Platform Service Fee", value: "₹50" },
-    { label: "Deposit Amount", value: "₹149" },
-    { label: "Total Charges", value: "₹298", highlight: true }
-  ];
-
-  const trustIndicators = [
-    {
-      icon: <Shield className="w-10 h-10" />,
-      title: "Bank-Level Security",
-      description: "256-bit SSL encryption protects all your data"
-    },
-    {
-      icon: <CheckCircle className="w-10 h-10" />,
-      title: "Verified Platform",
-      description: "Authenticated and trusted by thousands"
-    },
-    {
-      icon: <Lock className="w-10 h-10" />,
-      title: "Data Privacy",
-      description: "Your information is completely secure with us"
-    },
-    {
-      icon: <Smartphone className="w-10 h-10" />,
-      title: "24/7 Support",
-      description: "We're always here to help you"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-page">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 glass">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="text-2xl font-bold text-gradient">
-              GROW ₹ LOAN
+      <nav className="landing-nav">
+        <div className="nav-container">
+          <div className="nav-logo">
+            <div className="logo-circle">
+              <span className="logo-text">G</span>
             </div>
-            <div className="flex gap-3">
-              {user ? (
-                <>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => navigate("/home")}
-                    className="text-primary hover:text-primary-dark"
-                  >
-                    Dashboard
-                  </Button>
-                  <Button 
-                    onClick={() => navigate("/applications")}
-                    className="gradient-primary text-primary-foreground hover:opacity-90"
-                  >
-                    My Applications
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => navigate("/login")}
-                    className="text-primary hover:text-primary-dark"
-                  >
-                    Login
-                  </Button>
-                  <Button 
-                    onClick={handleGetStarted}
-                    className="gradient-primary text-primary-foreground hover:opacity-90"
-                  >
-                    Get Started
-                  </Button>
-                </>
-              )}
-            </div>
+            <span className="logo-brand">GrowLoan</span>
           </div>
+          
+          <div className="nav-links-desktop">
+            <a href="#products" className="nav-link">Loans</a>
+            <a href="#features" className="nav-link">Features</a>
+            <a href="#about" className="nav-link">About</a>
+            <a href="#support" className="nav-link">Support</a>
+            <div className="nav-search">
+              <span className="search-icon-text">Q</span>
+              <span className="search-text">Search GrowLoan...</span>
+            </div>
+            {user ? (
+              <Button 
+                onClick={() => navigate("/home")}
+                className="nav-login-btn"
+              >
+                Dashboard
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => navigate("/login")}
+                className="nav-login-btn"
+              >
+                Login / Sign up
+              </Button>
+            )}
+          </div>
+
+          <button 
+            className="mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X /> : <Menu />}
+          </button>
         </div>
+
+        {mobileMenuOpen && (
+          <div className="mobile-menu">
+            <a href="#products" onClick={() => setMobileMenuOpen(false)}>Loans</a>
+            <a href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
+            <a href="#about" onClick={() => setMobileMenuOpen(false)}>About</a>
+            <a href="#support" onClick={() => setMobileMenuOpen(false)}>Support</a>
+            {user ? (
+              <Button onClick={() => { navigate("/home"); setMobileMenuOpen(false); }}>
+                Dashboard
+              </Button>
+            ) : (
+              <Button onClick={() => { navigate("/login"); setMobileMenuOpen(false); }}>
+                Login / Sign up
+              </Button>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
-      <section className="gradient-hero pt-32 pb-20 px-4 text-white">
-        <div className="container mx-auto text-center">
-          <div className="inline-block bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 mb-6 animate-float">
-            <span className="text-sm font-semibold">🚀 Quick & Easy Loans</span>
-          </div>
-          
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight">
-            Get Your Loan Approved<br />in Just 1 Minute
-          </h1>
-          
-          <p className="text-xl md:text-2xl mb-12 text-white/90 max-w-2xl mx-auto">
-            Fast, secure, and hassle-free loan application process. Apply now and get instant approval!
-          </p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
-            {stats.map((stat, index) => (
-              <div key={index} className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 hover-lift">
-                <div className="text-3xl md:text-4xl font-bold mb-2">{stat.value}</div>
-                <div className="text-sm text-white/80">{stat.label}</div>
+      <section className="hero-section">
+        <div className="hero-content">
+          <h1 className="hero-title">GrowLoan your wealth</h1>
+          <p className="hero-subtitle">Built for a Growing India.</p>
+          <div className="hero-cta-wrapper">
+            <div className="hero-cta">
+              <Button 
+                size="lg"
+                onClick={handleGetStarted}
+                className="hero-btn-primary"
+              >
+                Get started
+              </Button>
+              <div className="hero-badge">
+                <div className="badge-text">
+                  <strong>India's #1 Loan Platform</strong>
+                  <span>Trusted by 5+ crore borrowers</span>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg"
-              onClick={handleGetStarted}
-              className="gradient-accent text-accent-foreground hover:opacity-90 text-lg px-8 py-6"
-            >
-              Get Started Now <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              onClick={() => navigate("/login")}
-              className="bg-white/10 border-white text-white hover:bg-white hover:text-primary text-lg px-8 py-6"
-            >
-              {user ? 'Go to Dashboard' : 'Login'}
-            </Button>
+          <div className="hero-illustration">
+            <div className="illustration-placeholder">
+              <img 
+                src={cityscapeImage} 
+                alt="GrowLoan Cityscape" 
+                className="cityscape-image"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 bg-muted">
-        <div className="container mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Why Choose GrowLoan?</h2>
-            <p className="text-xl text-muted-foreground">Everything you need for a smooth loan experience</p>
+      <section id="features" className="features-section">
+        <div className="container">
+          <div className="features-content">
+            <div className="features-left">
+              <h2 className="section-title">Indian markets at your fingertips</h2>
+              <p className="section-description">
+                Long-term or short-term, high risk or low risk. Be the kind of borrower you want to be.
+              </p>
+              <div className="loan-types-list">
+                {loanTypes.map((type, index) => (
+                  <div key={index} className="loan-type-item">
+                    <div className="loan-type-icon">{type.icon}</div>
+                    <div className="loan-type-content">
+                      <h3>{type.title}</h3>
+                      <p>{type.desc}</p>
+                    </div>
+                    <ArrowRight className="arrow-icon" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="features-right">
+              <div className="phone-mockup">
+                <div className="phone-screen">
+                  <div className="phone-app-header">
+                    <div className="phone-logo">
+                      <div className="phone-logo-circle">
+                        <span>G</span>
+                      </div>
+                      <span className="phone-logo-text">GrowLoan</span>
+                    </div>
+                    <Menu className="phone-menu-icon" />
+                  </div>
+                  <div className="phone-content-area">
+                    <div className="phone-form-container">
+                      <h3 className="phone-form-title">Apply for Loan</h3>
+                      <div className="phone-price-large">₹50,000</div>
+                      <div className="phone-options">
+                        <button className="phone-option active">Personal</button>
+                        <button className="phone-option">Business</button>
+                      </div>
+                      <div className="phone-form">
+                        <div className="phone-field">
+                          <label>Loan Amount</label>
+                          <input type="text" value="50000" readOnly />
+                        </div>
+                        <div className="phone-field">
+                          <label>Tenure</label>
+                          <select>
+                            <option>12 Months</option>
+                            <option>24 Months</option>
+                            <option>36 Months</option>
+                          </select>
+                        </div>
+                        <div className="phone-field">
+                          <label>Interest Rate</label>
+                          <input type="text" value="12% p.a." readOnly />
+                        </div>
+                        <button className="phone-submit-btn">APPLY NOW</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        </div>
+      </section>
+
+      {/* Education Section */}
+      <section className="education-section">
+        <div className="container">
+          <div className="education-content">
+            <GraduationCap className="education-icon" />
+            <h2 className="section-title">Finance simplified, in your language.</h2>
+            <div className="education-links">
+              <a href="#" className="education-link">
+                <span>YouTube</span>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+              <a href="#" className="education-link">
+                <span>GrowLoan Digest</span>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust Features */}
+      <section className="trust-section">
+        <div className="container">
+          <div className="trust-grid">
             {features.map((feature, index) => (
-              <div 
-                key={index} 
-                className="bg-card rounded-3xl p-8 hover-lift border border-border"
-              >
-                <div className="text-primary mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
+              <div key={index} className="trust-card">
+                <div className="trust-icon">{feature.icon}</div>
+                <h3>{feature.title}</h3>
+                <p>{feature.description}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="py-20 px-4 bg-card">
-        <div className="container mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
-            <p className="text-xl text-muted-foreground">Get your loan in 3 simple steps</p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {[
-              { step: 1, title: "Complete Your Profile", desc: "Fill out our simple 3-step form with your details" },
-              { step: 2, title: "Get Loan Offer", desc: "Receive an instant loan offer based on your profile" },
-              { step: 3, title: "Quick Approval", desc: "1-minute validation and instant approval process" }
-            ].map((item, index) => (
-              <div key={index} className="text-center relative">
-                <div className="w-20 h-20 rounded-full gradient-primary text-white flex items-center justify-center text-3xl font-bold mx-auto mb-6">
-                  {item.step}
-                </div>
-                <h3 className="text-2xl font-bold mb-3">{item.title}</h3>
-                <p className="text-muted-foreground">{item.desc}</p>
-                {index < 2 && (
-                  <ArrowRight className="hidden md:block absolute top-10 -right-4 w-8 h-8 text-primary" />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Loan Details */}
-      <section className="py-20 px-4 gradient-hero text-white">
-        <div className="container mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Loan Details & Charges</h2>
-            <p className="text-xl text-white/90">Transparent pricing with no hidden fees</p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {loanDetails.map((detail, index) => (
-              <div 
-                key={index} 
-                className={`bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover-lift ${
-                  detail.highlight ? 'bg-white/20 ring-2 ring-accent' : ''
-                }`}
-              >
-                <div className="text-sm text-white/70 uppercase tracking-wide mb-2">{detail.label}</div>
-                <div className={`text-3xl font-bold ${detail.highlight ? 'text-accent' : 'text-white'}`}>
-                  {detail.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Trust Indicators */}
-      <section className="py-20 px-4 bg-muted">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {trustIndicators.map((indicator, index) => (
-              <div key={index} className="text-center">
-                <div className="text-primary mb-4 flex justify-center">{indicator.icon}</div>
-                <h3 className="text-lg font-bold mb-2">{indicator.title}</h3>
-                <p className="text-sm text-muted-foreground">{indicator.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="py-20 px-4 gradient-hero text-white text-center">
-        <div className="container mx-auto max-w-3xl">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">Ready to Get Your Loan?</h2>
-          <p className="text-xl mb-10 text-white/90">
-            Join thousands of satisfied customers who trust GrowLoan for their financial needs
-          </p>
-          <Button 
-            size="lg"
-            onClick={handleGetStarted}
-            className="gradient-accent text-accent-foreground hover:opacity-90 text-xl px-10 py-7"
-          >
-            Apply Now - It's Free <ArrowRight className="ml-2 w-6 h-6" />
-          </Button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-card border-t border-border py-8 px-4">
-        <div className="container mx-auto text-center text-muted-foreground">
-          <p>© 2024 GrowLoan. All rights reserved.</p>
+      <footer className="landing-footer">
+        <div className="container">
+          <div className="footer-content">
+            <div className="footer-main">
+              <div className="footer-logo-section">
+                <div className="footer-logo">
+                  <div className="logo-circle">
+                    <span className="logo-text">G</span>
+                  </div>
+                  <span className="logo-brand">GrowLoan</span>
+                </div>
+                <p className="footer-address">
+                  Vaishnavi Tech Park, South Tower, 3rd Floor,<br />
+                  Sarjapur Main Road, Bellandur,<br />
+                  Bengaluru - 560103 Karnataka
+                </p>
+                <div className="footer-contact">
+                  <div className="contact-section">
+                    <h4>Contact Us</h4>
+                    <div className="social-icons">
+                      <a href="#" aria-label="Twitter"><Twitter /></a>
+                      <a href="#" aria-label="Instagram"><Instagram /></a>
+                      <a href="#" aria-label="LinkedIn"><Linkedin /></a>
+                      <a href="#" aria-label="YouTube"><Youtube /></a>
+                    </div>
+                  </div>
+                  <div className="contact-section">
+                    <h4>Download the App</h4>
+                    <div className="app-icons">
+                      <a href="#" aria-label="App Store"><Apple /></a>
+                      <a href="#" aria-label="Play Store"><Play /></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="footer-links">
+                <div className="footer-column">
+                  <h4>GROWLOAN</h4>
+                  <ul>
+                    <li><a href="#about">About Us</a></li>
+                    <li><a href="#pricing">Pricing</a></li>
+                    <li><a href="#blog">Blog</a></li>
+                    <li><a href="#media">Media & Press</a></li>
+                    <li><a href="#careers">Careers</a></li>
+                    <li><Link to="/contact">Help & Support</Link></li>
+                    <li><a href="#trust">Trust & Safety</a></li>
+                    <li><a href="#investor">Investor Relations</a></li>
+                  </ul>
+                </div>
+
+                <div className="footer-column">
+                  <h4>PRODUCTS</h4>
+                  <ul>
+                    <li><a href="#personal-loans">Personal Loans</a></li>
+                    <li><a href="#business-loans">Business Loans</a></li>
+                    <li><a href="#home-loans">Home Loans</a></li>
+                    <li><a href="#education-loans">Education Loans</a></li>
+                    <li><a href="#quick-loans">Quick Loans</a></li>
+                    <li><a href="#loan-calculator">Loan Calculator</a></li>
+                    <li><a href="#emi-calculator">EMI Calculator</a></li>
+                    <li><a href="#eligibility">Eligibility Check</a></li>
+                  </ul>
+                </div>
+
+                <div className="footer-column">
+                  <h4>LOAN TYPES</h4>
+                  <ul>
+                    <li><a href="#secured">Secured Loans</a></li>
+                    <li><a href="#unsecured">Unsecured Loans</a></li>
+                    <li><a href="#short-term">Short Term Loans</a></li>
+                    <li><a href="#long-term">Long Term Loans</a></li>
+                    <li><a href="#instant">Instant Loans</a></li>
+                    {showMoreProducts && (
+                      <>
+                        <li><a href="#gold">Gold Loans</a></li>
+                        <li><a href="#vehicle">Vehicle Loans</a></li>
+                        <li><a href="#medical">Medical Loans</a></li>
+                      </>
+                    )}
+                    <li>
+                      <button 
+                        className="show-more-btn"
+                        onClick={() => setShowMoreProducts(!showMoreProducts)}
+                      >
+                        {showMoreProducts ? 'Show Less' : 'Show More'}
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="footer-column">
+                  <h4>CALCULATORS</h4>
+                  <ul>
+                    <li><a href="#emi">EMI Calculator</a></li>
+                    <li><a href="#eligibility">Eligibility Calculator</a></li>
+                    <li><a href="#interest">Interest Calculator</a></li>
+                    <li><a href="#prepayment">Prepayment Calculator</a></li>
+                    <li><a href="#tax">Tax Calculator</a></li>
+                  </ul>
+                </div>
+
+                <div className="footer-column">
+                  <h4>SUPPORT</h4>
+                  <ul>
+                    <li><Link to="/contact">Contact Us</Link></li>
+                    <li><a href="#faq">FAQ</a></li>
+                    <li><a href="#help">Help Center</a></li>
+                    <li><a href="#track">Track Application</a></li>
+                    <li><a href="#complaint">File Complaint</a></li>
+                  </ul>
+                </div>
+
+                <div className="footer-column">
+                  <h4>LEGAL</h4>
+                  <ul>
+                    <li><Link to="/privacy">Privacy Policy</Link></li>
+                    <li><a href="#terms">Terms & Conditions</a></li>
+                    <li><a href="#disclosure">Disclosure</a></li>
+                    <li><a href="#grievance">Grievance Policy</a></li>
+                    <li><a href="#security">Security Practices</a></li>
+                    <li><a href="#regulatory">Regulatory Info</a></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="footer-disclaimer">
+              <div className="disclaimer-section">
+                <h4>About GrowLoan</h4>
+                <p>
+                  GrowLoan is India's leading digital lending platform, providing quick and easy access to loans 
+                  for millions of Indians. We offer transparent, secure, and hassle-free loan services with 
+                  competitive interest rates and flexible repayment options.
+                </p>
+              </div>
+              <div className="disclaimer-section">
+                <h4>Secure Transactions on GrowLoan</h4>
+                <p>
+                  All transactions on GrowLoan are secured with bank-level 256-bit SSL encryption. 
+                  Your personal and financial information is protected with industry-leading security measures. 
+                  We are committed to maintaining the highest standards of data privacy and security.
+                </p>
+              </div>
+              <div className="disclaimer-section">
+                <h4>Attention Borrowers</h4>
+                <p>
+                  Please be cautious of unauthorized emails, SMS, or calls claiming to be from GrowLoan. 
+                  We will never ask for your password, OTP, or sensitive information via email or phone. 
+                  Always verify communications through our official channels.
+                </p>
+              </div>
+              <div className="disclaimer-section">
+                <h4>Disclaimer</h4>
+                <p>
+                  GrowLoan is a registered NBFC (Non-Banking Financial Company) licensed by the Reserve Bank of India. 
+                  All loan products are subject to eligibility criteria and credit assessment. Interest rates and 
+                  terms may vary based on individual credit profiles. Please read all terms and conditions carefully 
+                  before applying for any loan product. Past performance does not guarantee future results.
+                </p>
+              </div>
+            </div>
+
+            <div className="footer-copyright">
+              <p>© 2024 GrowLoan. All rights reserved.</p>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

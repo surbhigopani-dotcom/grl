@@ -32,9 +32,32 @@ const loanSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'validating', 'approved', 'payment_pending', 'payment_validation', 'processing', 'completed', 'rejected', 'cancelled'],
+    enum: ['pending', 'validating', 'approved', 'tenure_selection', 'sanction_letter_viewed', 'signature_pending', 'payment_pending', 'payment_validation', 'processing', 'completed', 'rejected', 'cancelled'],
     default: 'pending',
     index: true
+  },
+  emiAmount: {
+    type: Number,
+    default: 0
+  },
+  totalInterest: {
+    type: Number,
+    default: 0
+  },
+  totalAmount: {
+    type: Number,
+    default: 0 // Principal + Interest
+  },
+  digitalSignature: {
+    type: String,
+    default: '' // Base64 signature or signature URL
+  },
+  signatureDate: {
+    type: Date
+  },
+  sanctionLetterViewed: {
+    type: Boolean,
+    default: false
   },
   depositAmount: {
     type: Number,

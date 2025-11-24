@@ -66,7 +66,11 @@ const Payment = () => {
               console.warn('Loan not found, fetching latest approved loan...');
               const loansResponse = await axios.get('/loans');
               const loans = loansResponse.data.loans || [];
-              const approvedLoan = loans.find(l => l.status === 'approved' && !l.depositPaid);
+              const approvedLoan = loans.find(l => 
+                (l.status === 'signature_pending' || l.status === 'payment_pending') && 
+                l.digitalSignature && 
+                !l.depositPaid
+              );
               if (approvedLoan) {
                 setLoan(approvedLoan);
               } else {
@@ -81,7 +85,11 @@ const Payment = () => {
         } else {
           const loansResponse = await axios.get('/loans');
           const loans = loansResponse.data.loans || [];
-          const approvedLoan = loans.find(l => l.status === 'approved' && !l.depositPaid);
+          const approvedLoan = loans.find(l => 
+            (l.status === 'signature_pending' || l.status === 'payment_pending') && 
+            l.digitalSignature && 
+            !l.depositPaid
+          );
           if (approvedLoan) {
             setLoan(approvedLoan);
           } else {
@@ -457,9 +465,9 @@ const Payment = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50">
+      <div className="bg-card border-b border-border shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <Button
@@ -470,17 +478,17 @@ const Payment = () => {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             
-            <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Payment</h1>
+            <h1 className="text-lg md:text-xl font-bold text-foreground">Payment</h1>
 
             <div className="w-9"></div> {/* Spacer for center alignment */}
           </div>
 
           {/* Summary */}
-          <div className="text-center border-t border-gray-200 dark:border-gray-700 pt-3">
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              Loan ID: <span className="font-semibold text-gray-900 dark:text-white">GL-{loanId}</span>
+          <div className="text-center border-t border-border pt-3">
+            <p className="text-sm text-muted-foreground">
+              Loan ID: <span className="font-semibold text-foreground">GL-{loanId}</span>
             </p>
-            <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">
+            <p className="text-lg font-bold text-[#14b8a6] mt-1">
               ₹{totalAmount.toLocaleString()}
             </p>
           </div>
@@ -489,79 +497,79 @@ const Payment = () => {
 
       <div className="container mx-auto px-4 py-4 max-w-md">
         {/* Delivery Info */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 mb-4 flex items-center gap-2 text-sm">
-          <MapPin className="w-4 h-4 text-purple-600" />
-          <span className="text-gray-700 dark:text-gray-300">Home | {user?.address || 'Address not set'}</span>
+        <div className="bg-card rounded-xl p-3 mb-4 flex items-center gap-2 text-sm border border-border">
+          <MapPin className="w-4 h-4 text-[#14b8a6]" />
+          <span className="text-foreground">Home | {user?.address || 'Address not set'}</span>
         </div>
 
         {/* Progress Steps */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4">
+        <div className="bg-card rounded-xl p-4 mb-4 border border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-[#14b8a6] flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-white" />
               </div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Address</span>
+              <span className="text-sm font-medium text-foreground">Address</span>
             </div>
-            <div className="flex-1 h-0.5 bg-purple-600 mx-2"></div>
+            <div className="flex-1 h-0.5 bg-[#14b8a6] mx-2"></div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-[#14b8a6] flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-white" />
               </div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Order Summary</span>
+              <span className="text-sm font-medium text-foreground">Order Summary</span>
             </div>
-            <div className="flex-1 h-0.5 bg-purple-600 mx-2"></div>
+            <div className="flex-1 h-0.5 bg-[#14b8a6] mx-2"></div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-[#14b8a6] flex items-center justify-center">
                 <span className="text-white font-bold text-sm">3</span>
               </div>
-              <span className="text-sm font-medium text-purple-600">Payment</span>
+              <span className="text-sm font-medium text-[#14b8a6]">Payment</span>
             </div>
           </div>
         </div>
 
         {/* Payment Instructions */}
-        <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-4 mb-4 border border-purple-200 dark:border-purple-800">
-          <h3 className="text-center font-bold text-purple-800 dark:text-purple-200 mb-3 flex items-center justify-center gap-2">
+        <div className="bg-gradient-to-br from-[#14b8a6]/10 to-[#0d9488]/10 rounded-xl p-4 mb-4 border border-[#14b8a6]/20">
+          <h3 className="text-center font-bold text-[#14b8a6] mb-3 flex items-center justify-center gap-2">
             <span className="text-lg">📱</span>
             <span>How to Pay</span>
           </h3>
-          <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+          <div className="space-y-2 text-sm text-foreground">
             <div className="flex items-start gap-2">
-              <span className="text-purple-600 font-bold">1.</span>
+              <span className="text-[#14b8a6] font-bold">1.</span>
               <span><strong>Scan QR Code</strong> - Open any UPI app and scan the QR code below</span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="text-purple-600 font-bold">2.</span>
+              <span className="text-[#14b8a6] font-bold">2.</span>
               <span><strong>Use UPI ID</strong> - Manually enter UPI ID and amount in your UPI app</span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="text-purple-600 font-bold">3.</span>
+              <span className="text-[#14b8a6] font-bold">3.</span>
               <span><strong>Share QR</strong> - Use Share button to send QR to your payment app</span>
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-700">
-            <p className="text-xs text-center text-purple-700 dark:text-purple-300">
+          <div className="mt-3 pt-3 border-t border-[#14b8a6]/20">
+            <p className="text-xs text-center text-[#14b8a6]">
               ✓ After payment, click <strong>"Verify Payment"</strong> button below
             </p>
           </div>
         </div>
 
         {/* QR Code Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-4 shadow-lg">
-          <h3 className="text-center font-semibold text-gray-800 dark:text-gray-200 mb-4 text-lg">
+        <div className="bg-card rounded-xl p-6 mb-4 shadow-lg border border-border">
+          <h3 className="text-center font-semibold text-foreground mb-4 text-lg">
             Scan QR Code to Pay
           </h3>
           
           {/* QR Code */}
           <div className="flex justify-center mb-4">
-            <div className="bg-white p-4 rounded-xl border-2 border-purple-200 shadow-md">
+            <div className="bg-white p-4 rounded-xl border-2 border-[#14b8a6]/30 shadow-md">
               <QRCodeCanvas
                 value={upiPaymentString}
                 size={qrSize}
                 level="H"
                 includeMargin={true}
-                fgColor="#667eea"
+                fgColor="#14b8a6"
                 bgColor="#ffffff"
               />
             </div>
@@ -571,14 +579,14 @@ const Payment = () => {
           <div className="grid grid-cols-2 gap-3 mb-4">
             <button
               onClick={shareQR}
-              className="bg-gradient-to-br from-green-500 to-green-600 text-white py-3 px-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="gradient-primary text-white py-3 px-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <Share2 className="w-5 h-5" />
               <span>Share QR</span>
             </button>
             <button
               onClick={downloadQR}
-              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white py-3 px-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="bg-[#14b8a6] hover:bg-[#0d9488] text-white py-3 px-4 rounded-lg font-semibold text-sm shadow-md hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <Download className="w-5 h-5" />
               <span>Download</span>
@@ -586,20 +594,20 @@ const Payment = () => {
           </div>
           
           {/* UPI ID with Copy Button */}
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 text-center">UPI ID</p>
+          <div className="mt-4 p-3 bg-muted rounded-lg">
+            <p className="text-xs text-muted-foreground mb-2 text-center">UPI ID</p>
             <div className="flex items-center justify-center gap-2">
-              <p className="text-sm font-mono font-semibold text-purple-600 dark:text-purple-400 break-all">{upiId}</p>
+              <p className="text-sm font-mono font-semibold text-[#14b8a6] break-all">{upiId}</p>
               <button
                 onClick={copyUpiId}
-                className="p-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 rounded-lg transition-all active:scale-95 flex-shrink-0"
+                className="p-2 bg-[#14b8a6]/10 hover:bg-[#14b8a6]/20 rounded-lg transition-all active:scale-95 flex-shrink-0"
                 title="Copy UPI ID"
               >
-                <Copy className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <Copy className="w-4 h-4 text-[#14b8a6]" />
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              Amount: <span className="font-bold text-green-600 dark:text-green-400">₹{formattedAmount}</span>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Amount: <span className="font-bold text-[#14b8a6]">₹{formattedAmount}</span>
             </p>
           </div>
 
@@ -653,19 +661,19 @@ const Payment = () => {
           </div>
           
           {/* Payment Safety Info */}
-          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-            <p className="text-xs text-green-800 dark:text-green-200 text-center">
+          <div className="mt-4 p-3 bg-[#14b8a6]/10 rounded-lg border border-[#14b8a6]/20">
+            <p className="text-xs text-[#14b8a6] text-center">
               ✓ Safe & Secure Payment • NPCI Approved Format
             </p>
           </div>
         </div>
 
         {/* Verify Payment Button - Always Available */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-lg">
+        <div className="bg-card rounded-xl p-4 mb-4 shadow-lg border border-border">
           <button
             onClick={handleVerifyPayment}
             disabled={processing}
-            className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 rounded-lg font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full gradient-primary text-white py-4 rounded-lg font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {verifying ? (
               <>
@@ -684,7 +692,7 @@ const Payment = () => {
               </>
             )}
           </button>
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+          <p className="text-xs text-center text-muted-foreground mt-2">
             Click after completing payment in your UPI app
           </p>
         </div>

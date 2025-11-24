@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
-import { CheckCircle, Circle } from 'lucide-react';
+import { CheckCircle, Circle, ArrowLeft, Upload, X, FileImage } from 'lucide-react';
 
 const ProfileSetup = () => {
   const navigate = useNavigate();
@@ -15,6 +15,16 @@ const ProfileSetup = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(10000); // Default amount
+  const [uploading, setUploading] = useState({ aadhar: false, pan: false, selfie: false });
+  const [documents, setDocuments] = useState({
+    aadharCard: user?.aadharCardUrl || null,
+    panCard: user?.panCardUrl || null,
+    selfie: user?.selfieUrl || null
+  });
+  const aadharInputRef = useRef(null);
+  const panInputRef = useRef(null);
+  const selfieInputRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -27,16 +37,14 @@ const ProfileSetup = () => {
     employmentType: user?.employmentType || '',
     companyName: user?.companyName || '',
     aadharNumber: user?.aadharNumber || '',
-    panNumber: user?.panNumber || '',
-    bankAccountNumber: user?.bankAccountNumber || '',
-    ifscCode: user?.ifscCode || '',
-    additionalDetails: user?.additionalDetails || ''
+    panNumber: user?.panNumber || ''
   });
 
   const steps = [
-    { number: 1, title: "Personal Info" },
-    { number: 2, title: "Address & Employment" },
-    { number: 3, title: "Documents & Loan Amount" }
+    { number: 1, title: "Info" },
+    { number: 2, title: "Address" },
+    { number: 3, title: "Documents" },
+    { number: 4, title: "Loan Amount" }
   ];
 
 
@@ -64,6 +72,15 @@ const ProfileSetup = () => {
         toast.error('Please enter company name');
         return false;
       }
+    } else if (currentStep === 3) {
+      if (!formData.aadharNumber || !formData.panNumber) {
+        toast.error('Please enter Aadhar and PAN numbers');
+        return false;
+      }
+      if (!documents.aadharCard || !documents.panCard || !documents.selfie) {
+        toast.error('Please upload all required documents (Aadhar, PAN, and Selfie)');
+        return false;
+      }
     }
     return true;
   };
@@ -78,12 +95,88 @@ const ProfileSetup = () => {
     setCurrentStep(prev => prev - 1);
   };
 
-  const handleSubmit = async () => {
-    if (!formData.aadharNumber || !formData.panNumber) {
-      toast.error('Aadhar and PAN details are required');
+  const handleFileUpload = async (file, documentType) => {
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPEG, PNG, or WebP)');
       return;
     }
 
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size should be less than 5MB');
+      return;
+    }
+
+    setUploading(prev => ({ ...prev, [documentType]: true }));
+
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', documentType);
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please login again');
+        navigate('/login');
+        return;
+      }
+
+      const response = await axios.post('/users/upload-document', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        },
+        timeout: 30000 // 30 seconds timeout
+      });
+
+      if (response.data && response.data.success) {
+        const url = response.data.url;
+        setDocuments(prev => ({ ...prev, [documentType]: url }));
+        toast.success(`${documentType === 'aadharCard' ? 'Aadhar' : documentType === 'panCard' ? 'PAN' : 'Selfie'} uploaded successfully!`);
+      } else {
+        throw new Error('Upload failed: Invalid response');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      if (error.response) {
+        // Server responded with error
+        toast.error(error.response.data?.message || 'Failed to upload document');
+      } else if (error.request) {
+        // Request made but no response
+        toast.error('Network error. Please check your connection and try again.');
+      } else {
+        // Something else happened
+        toast.error(error.message || 'Failed to upload document');
+      }
+    } finally {
+      setUploading(prev => ({ ...prev, [documentType]: false }));
+    }
+  };
+
+  const handleFileChange = (e, documentType) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleFileUpload(file, documentType);
+    }
+  };
+
+  const removeDocument = (documentType) => {
+    setDocuments(prev => ({ ...prev, [documentType]: null }));
+    // Reset input
+    if (documentType === 'aadharCard' && aadharInputRef.current) {
+      aadharInputRef.current.value = '';
+    } else if (documentType === 'panCard' && panInputRef.current) {
+      panInputRef.current.value = '';
+    } else if (documentType === 'selfie' && selfieInputRef.current) {
+      selfieInputRef.current.value = '';
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!selectedAmount || selectedAmount < 10000) {
       toast.error('Please select a valid loan amount (minimum ₹10,000)');
       return;
@@ -93,7 +186,10 @@ const ProfileSetup = () => {
     try {
       const profileData = {
         ...formData,
-        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null
+        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
+        aadharCardUrl: documents.aadharCard,
+        panCardUrl: documents.panCard,
+        selfieUrl: documents.selfie
       };
 
       await updateProfile(profileData);
@@ -136,40 +232,67 @@ const ProfileSetup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="container mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4">Complete Your Profile</h1>
-          <p className="text-muted-foreground text-sm md:text-lg">Help us understand you better to offer the best loan</p>
+    <div className="min-h-screen bg-gray-100">
+      {/* Header with Back Arrow */}
+      <div className="bg-[#14b8a6] py-4 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="text-white hover:bg-white/20 rounded-full p-2 transition-colors flex-shrink-0"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
+            </button>
+            <div className="flex-1 text-center">
+              <h1 className="text-lg md:text-xl font-bold text-white" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Complete Your Profile
+              </h1>
+              <p className="text-white/90 text-xs md:text-sm mt-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Help us understand you better to offer the best loan
+              </p>
+            </div>
+            <div className="w-9 md:w-10 flex-shrink-0" />
+          </div>
         </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 pt-4 pb-6">
 
         {/* Step Indicator */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
             {steps.map((step, index) => (
               <div key={step.number} className="flex items-center flex-1">
-                <div className="flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                    currentStep >= step.number 
-                      ? 'gradient-primary border-transparent text-white' 
-                      : 'border-muted-foreground/30 text-muted-foreground'
-                  }`}>
+                <div className="flex flex-col items-center flex-1">
+                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-2 transition-all ${
+                    currentStep === step.number
+                      ? 'bg-[#14b8a6] border-[#14b8a6] text-white shadow-md' 
+                      : currentStep > step.number
+                      ? 'bg-[#14b8a6] border-[#14b8a6] text-white'
+                      : 'border-gray-300 bg-white text-gray-600'
+                  }`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                     {currentStep > step.number ? (
-                      <CheckCircle className="w-6 h-6" />
+                      <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-white" />
                     ) : (
-                      <span className="font-bold">{step.number}</span>
+                      <span className={`font-bold text-sm md:text-base ${
+                        currentStep === step.number ? 'text-white' : 'text-gray-600'
+                      }`}>{step.number}</span>
                     )}
                   </div>
-                  <span className={`text-sm mt-2 font-medium ${
-                    currentStep >= step.number ? 'text-primary' : 'text-muted-foreground'
-                  }`}>
+                  <span className={`text-xs md:text-sm mt-2 font-medium text-center ${
+                    currentStep === step.number 
+                      ? 'text-[#14b8a6] font-semibold' 
+                      : currentStep > step.number
+                      ? 'text-[#14b8a6]'
+                      : 'text-gray-500'
+                  }`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                     {step.title}
                   </span>
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`h-0.5 flex-1 mx-4 transition-all ${
-                    currentStep > step.number ? 'bg-primary' : 'bg-muted-foreground/30'
+                  <div className={`h-0.5 flex-1 mx-2 md:mx-4 transition-all ${
+                    currentStep > step.number ? 'bg-[#14b8a6]' : 'bg-gray-300'
                   }`} />
                 )}
               </div>
@@ -178,49 +301,63 @@ const ProfileSetup = () => {
         </div>
 
         {/* Form Card */}
-        <div className="bg-card rounded-3xl p-8 shadow-lg border border-border">
+        <div className="bg-white rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-lg border border-gray-200">
           {/* Step 1: Personal Information */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold mb-6">Personal Information</h2>
+            <div className="space-y-5">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-5" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Personal Information
+              </h2>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Full Name *</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Full Name *
+                </label>
                 <Input
                   value={formData.name}
                   onChange={(e) => updateField("name", e.target.value)}
                   placeholder="Enter your full name"
-                  className="h-12 rounded-xl"
+                  className="h-12 rounded-xl border-gray-300 focus:border-[#14b8a6] focus:ring-2 focus:ring-[#14b8a6]/20"
+                  style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Mobile Number</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Mobile Number
+                </label>
                 <Input
                   value={formData.phone}
                   disabled
-                  className="h-12 rounded-xl bg-muted"
+                  className="h-12 rounded-xl bg-gray-50 border-gray-300"
+                  style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Email Address *</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Email Address *
+                </label>
                 <Input
                   type="email"
                   value={formData.email}
                   onChange={(e) => updateField("email", e.target.value)}
                   placeholder="your@email.com"
-                  className="h-12 rounded-xl"
+                  className="h-12 rounded-xl border-gray-300 focus:border-[#14b8a6] focus:ring-2 focus:ring-[#14b8a6]/20"
+                  style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Date of Birth *</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Date of Birth *
+                </label>
                 <Input
                   type="date"
                   value={formData.dateOfBirth}
                   onChange={(e) => updateField("dateOfBirth", e.target.value)}
-                  className="h-12 rounded-xl"
+                  className="h-12 rounded-xl border-gray-300 focus:border-[#14b8a6] focus:ring-2 focus:ring-[#14b8a6]/20"
+                  style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                   max={new Date().toISOString().split('T')[0]}
                 />
               </div>
@@ -229,8 +366,10 @@ const ProfileSetup = () => {
 
           {/* Step 2: Address & Employment */}
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold mb-6">Address & Employment Details</h2>
+            <div className="space-y-5">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-5" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Address Details
+              </h2>
               
               <div>
                 <label className="block text-sm font-medium mb-2">Address *</label>
@@ -306,10 +445,12 @@ const ProfileSetup = () => {
             </div>
           )}
 
-          {/* Step 3: Documents & Loan Offer */}
+          {/* Step 3: Documents */}
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold mb-6">Document Details</h2>
+            <div className="space-y-5">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-5" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Document Details
+              </h2>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
@@ -335,48 +476,212 @@ const ProfileSetup = () => {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Bank Account Number</label>
-                  <Input
-                    value={formData.bankAccountNumber}
-                    onChange={(e) => updateField("bankAccountNumber", e.target.value)}
-                    placeholder="Optional"
-                    className="h-12 rounded-xl"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">IFSC Code</label>
-                  <Input
-                    value={formData.ifscCode}
-                    onChange={(e) => updateField("ifscCode", e.target.value.toUpperCase())}
-                    placeholder="Optional"
-                    className="h-12 rounded-xl uppercase"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Additional Details</label>
-                <Textarea
-                  value={formData.additionalDetails}
-                  onChange={(e) => updateField("additionalDetails", e.target.value)}
-                  placeholder="Any additional information (optional)"
-                  className="rounded-xl min-h-[80px]"
-                />
-              </div>
-
-              {/* Loan Amount Selection with Slider */}
-              <div className="mt-8 p-8 bg-gradient-to-br from-primary/10 to-primary/5 rounded-3xl border-2 border-primary/20">
-                <h3 className="text-2xl font-bold mb-6 text-center">Select Loan Amount</h3>
+              {/* Document Upload Section */}
+              <div className="space-y-6 mt-8">
+                <h3 className="text-lg font-semibold">Upload Documents *</h3>
                 
+                {/* Aadhar Card Upload */}
+                <div className="border-2 border-dashed border-[#14b8a6]/30 rounded-xl p-6 bg-[#14b8a6]/5">
+                  <label className="block text-sm font-medium mb-3">Aadhar Card *</label>
+                  {documents.aadharCard ? (
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 flex items-center gap-3 p-3 bg-white rounded-lg border border-[#14b8a6]/20">
+                        {documents.aadharCard && (documents.aadharCard.startsWith('http') || documents.aadharCard.startsWith('/')) ? (
+                          <img 
+                            src={documents.aadharCard.startsWith('/') 
+                              ? `${process.env.NODE_ENV === 'production' ? window.location.origin : 'http://217.15.166.124:5000'}${documents.aadharCard}` 
+                              : documents.aadharCard} 
+                            alt="Aadhar Card" 
+                            className="w-12 h-12 object-cover rounded"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileImage className="w-5 h-5 text-[#14b8a6]" />
+                          <span className="text-sm text-gray-700 flex-1 truncate">Aadhar Card uploaded</span>
+                        </div>
+                        <button
+                          onClick={() => removeDocument('aadharCard')}
+                          className="p-1 hover:bg-red-50 rounded-full transition-colors"
+                        >
+                          <X className="w-5 h-5 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        ref={aadharInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'aadharCard')}
+                        className="hidden"
+                        id="aadhar-upload"
+                      />
+                      <label
+                        htmlFor="aadhar-upload"
+                        className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
+                      >
+                        {uploading.aadharCard ? (
+                          <div className="text-center">
+                            <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                            <span className="text-sm text-[#14b8a6]">Uploading...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
+                            <span className="text-sm font-medium text-[#14b8a6]">Click to upload Aadhar Card</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 5MB)</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {/* PAN Card Upload */}
+                <div className="border-2 border-dashed border-[#14b8a6]/30 rounded-xl p-6 bg-[#14b8a6]/5">
+                  <label className="block text-sm font-medium mb-3">PAN Card *</label>
+                  {documents.panCard ? (
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 flex items-center gap-3 p-3 bg-white rounded-lg border border-[#14b8a6]/20">
+                        {documents.panCard && (documents.panCard.startsWith('http') || documents.panCard.startsWith('/')) ? (
+                          <img 
+                            src={documents.panCard.startsWith('/') 
+                              ? `${process.env.NODE_ENV === 'production' ? window.location.origin : 'http://217.15.166.124:5000'}${documents.panCard}` 
+                              : documents.panCard} 
+                            alt="PAN Card" 
+                            className="w-12 h-12 object-cover rounded"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileImage className="w-5 h-5 text-[#14b8a6]" />
+                          <span className="text-sm text-gray-700 flex-1 truncate">PAN Card uploaded</span>
+                        </div>
+                        <button
+                          onClick={() => removeDocument('panCard')}
+                          className="p-1 hover:bg-red-50 rounded-full transition-colors"
+                        >
+                          <X className="w-5 h-5 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        ref={panInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'panCard')}
+                        className="hidden"
+                        id="pan-upload"
+                      />
+                      <label
+                        htmlFor="pan-upload"
+                        className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
+                      >
+                        {uploading.panCard ? (
+                          <div className="text-center">
+                            <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                            <span className="text-sm text-[#14b8a6]">Uploading...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
+                            <span className="text-sm font-medium text-[#14b8a6]">Click to upload PAN Card</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 5MB)</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {/* Selfie Upload */}
+                <div className="border-2 border-dashed border-[#14b8a6]/30 rounded-xl p-6 bg-[#14b8a6]/5">
+                  <label className="block text-sm font-medium mb-3">Selfie *</label>
+                  {documents.selfie ? (
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 flex items-center gap-3 p-3 bg-white rounded-lg border border-[#14b8a6]/20">
+                        {documents.selfie && (documents.selfie.startsWith('http') || documents.selfie.startsWith('/')) ? (
+                          <img 
+                            src={documents.selfie.startsWith('/') 
+                              ? `${process.env.NODE_ENV === 'production' ? window.location.origin : 'http://217.15.166.124:5000'}${documents.selfie}` 
+                              : documents.selfie} 
+                            alt="Selfie" 
+                            className="w-12 h-12 object-cover rounded"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileImage className="w-5 h-5 text-[#14b8a6]" />
+                          <span className="text-sm text-gray-700 flex-1 truncate">Selfie uploaded</span>
+                        </div>
+                        <button
+                          onClick={() => removeDocument('selfie')}
+                          className="p-1 hover:bg-red-50 rounded-full transition-colors"
+                        >
+                          <X className="w-5 h-5 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        ref={selfieInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="user"
+                        onChange={(e) => handleFileChange(e, 'selfie')}
+                        className="hidden"
+                        id="selfie-upload"
+                      />
+                      <label
+                        htmlFor="selfie-upload"
+                        className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
+                      >
+                        {uploading.selfie ? (
+                          <div className="text-center">
+                            <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                            <span className="text-sm text-[#14b8a6]">Uploading...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
+                            <span className="text-sm font-medium text-[#14b8a6]">Click to upload Selfie</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 5MB)</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Loan Amount Selection */}
+          {currentStep === 4 && (
+            <div className="space-y-5">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-5" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Select Loan Amount
+              </h2>
+              
+              {/* Loan Amount Selection with Slider */}
+              <div className="p-8 bg-gradient-to-br from-[#14b8a6]/10 to-[#0d9488]/5 rounded-3xl border-2 border-[#14b8a6]/20">
                 <div className="space-y-6">
                   {/* Slider */}
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <span className="text-sm font-medium text-muted-foreground">Amount</span>
-                      <span className="text-2xl font-bold text-primary">₹{selectedAmount.toLocaleString()}</span>
+                      <span className="text-sm font-medium text-gray-600">Amount</span>
+                      <span className="text-2xl font-bold text-[#14b8a6]">₹{selectedAmount.toLocaleString()}</span>
                     </div>
                     <input
                       type="range"
@@ -385,12 +690,12 @@ const ProfileSetup = () => {
                       step="1000"
                       value={selectedAmount}
                       onChange={handleAmountChange}
-                      className="w-full h-3 bg-muted rounded-lg appearance-none cursor-pointer slider"
+                      className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                       style={{
-                        background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${((selectedAmount - 10000) / (500000 - 10000)) * 100}%, hsl(var(--muted)) ${((selectedAmount - 10000) / (500000 - 10000)) * 100}%, hsl(var(--muted)) 100%)`
+                        background: `linear-gradient(to right, #14b8a6 0%, #14b8a6 ${((selectedAmount - 10000) / (500000 - 10000)) * 100}%, #e5e7eb ${((selectedAmount - 10000) / (500000 - 10000)) * 100}%, #e5e7eb 100%)`
                       }}
                     />
-                    <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <div className="flex justify-between text-xs text-gray-500 mt-2">
                       <span>₹10,000</span>
                       <span>₹5,00,000</span>
                     </div>
@@ -401,28 +706,33 @@ const ProfileSetup = () => {
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
-            {currentStep > 1 && (
+          <div className="flex justify-between mt-6 pt-6 border-t border-gray-200">
+            {currentStep > 1 ? (
               <Button
                 variant="outline"
                 onClick={handlePrevious}
-                className="rounded-xl px-8"
+                className="rounded-xl px-6 md:px-8 border-gray-300 text-gray-700 hover:bg-gray-50"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
               >
                 Previous
               </Button>
+            ) : (
+              <div></div>
             )}
             
-            {currentStep < 3 ? (
+            {currentStep < 4 ? (
               <Button
                 onClick={handleNext}
-                className="gradient-primary text-primary-foreground rounded-xl px-8 ml-auto"
+                className="bg-[#14b8a6] hover:bg-[#0d9488] text-white rounded-xl px-6 md:px-8 ml-auto font-semibold"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
               >
                 Next
               </Button>
             ) : (
               <Button
                 onClick={handleSubmit}
-                className="gradient-primary text-primary-foreground rounded-xl px-8 ml-auto"
+                className="bg-[#14b8a6] hover:bg-[#0d9488] text-white rounded-xl px-6 md:px-8 ml-auto font-semibold"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 disabled={loading || !selectedAmount || selectedAmount < 10000}
               >
                 {loading ? 'Submitting...' : 'Submit & Apply for Loan'}

@@ -81,9 +81,25 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  bankName: {
+    type: String,
+    default: ''
+  },
+  accountHolderName: {
+    type: String,
+    default: ''
+  },
   
-  // Additional Details
-  additionalDetails: {
+  // Document URLs
+  aadharCardUrl: {
+    type: String,
+    default: ''
+  },
+  panCardUrl: {
+    type: String,
+    default: ''
+  },
+  selfieUrl: {
     type: String,
     default: ''
   },

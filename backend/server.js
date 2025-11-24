@@ -12,11 +12,20 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files statically (must be before API routes to avoid conflicts)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '1d', // Cache for 1 day
+  etag: true
+}));
 
 // API Routes (must be before static files)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/loans', require('./routes/loans'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/support', require('./routes/support'));
 
 // Serve static files from the React app build directory (only in production)
 const frontendBuildPath = path.join(__dirname, '../frontend/build');

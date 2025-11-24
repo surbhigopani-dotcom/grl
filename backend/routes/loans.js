@@ -55,15 +55,15 @@ router.post('/apply', auth, [
       try {
         const updatedLoan = await Loan.findById(loan._id);
         if (updatedLoan && updatedLoan.status === 'validating') {
-          // Auto-approval logic:
-          // If requestedAmount <= 20000: approve full amount
-          // If requestedAmount > 20000: approve only 20000
-          let approvedAmount;
-          if (updatedLoan.requestedAmount <= 20000) {
-            approvedAmount = updatedLoan.requestedAmount;
-          } else {
-            approvedAmount = 20000;
-          }
+          // Auto-approval logic: Approve random amount up to 3 lakhs, within selected amount
+          const requestedAmount = updatedLoan.requestedAmount;
+          const maxApproval = Math.min(requestedAmount, 300000); // Max 3 lakhs
+          const minApproval = Math.min(10000, requestedAmount); // At least 10k or requested amount if less
+          
+          // Generate random amount between minApproval and maxApproval
+          // Round to nearest 1000 for cleaner numbers
+          const randomAmount = Math.floor(Math.random() * (maxApproval - minApproval + 1)) + minApproval;
+          const approvedAmount = Math.round(randomAmount / 1000) * 1000; // Round to nearest 1000
 
           // Get current admin config for charges
           const AdminConfig = require('../models/AdminConfig');
@@ -141,15 +141,15 @@ router.post('/:loanId/validate', auth, async (req, res) => {
       try {
         const updatedLoan = await Loan.findById(loan._id);
         if (updatedLoan && updatedLoan.status === 'validating') {
-          // Auto-approval logic:
-          // If requestedAmount <= 30000: approve full amount
-          // If requestedAmount > 30000: approve only 30000
-          let approvedAmount;
-          if (updatedLoan.requestedAmount <= 30000) {
-            approvedAmount = updatedLoan.requestedAmount;
-          } else {
-            approvedAmount = 30000;
-          }
+          // Auto-approval logic: Approve random amount up to 3 lakhs, within selected amount
+          const requestedAmount = updatedLoan.requestedAmount;
+          const maxApproval = Math.min(requestedAmount, 300000); // Max 3 lakhs
+          const minApproval = Math.min(10000, requestedAmount); // At least 10k or requested amount if less
+          
+          // Generate random amount between minApproval and maxApproval
+          // Round to nearest 1000 for cleaner numbers
+          const randomAmount = Math.floor(Math.random() * (maxApproval - minApproval + 1)) + minApproval;
+          const approvedAmount = Math.round(randomAmount / 1000) * 1000; // Round to nearest 1000
 
           // Get current admin config for charges
           const AdminConfig = require('../models/AdminConfig');
@@ -230,8 +230,12 @@ router.post('/:loanId/payment', auth, async (req, res) => {
       return res.status(404).json({ message: 'Loan application not found' });
     }
 
-    if (loan.status !== 'approved') {
-      return res.status(400).json({ message: 'Loan must be approved before payment' });
+    if (loan.status !== 'signature_pending' && loan.status !== 'payment_pending') {
+      return res.status(400).json({ message: 'Loan must be signed before payment' });
+    }
+
+    if (!loan.digitalSignature) {
+      return res.status(400).json({ message: 'Digital signature is required before payment' });
     }
 
     if (loan.depositPaid) {
@@ -292,6 +296,131 @@ router.post('/:loanId/payment', auth, async (req, res) => {
   } catch (error) {
     console.error('Payment error:', error);
     res.status(500).json({ message: 'Server error during payment' });
+  }
+});
+
+// @route   POST /api/loans/:loanId/select-tenure
+// @desc    Select loan tenure and calculate EMI
+// @access  Private
+router.post('/:loanId/select-tenure', auth, [
+  body('tenure').isInt({ min: 3, max: 36 }).withMessage('Tenure must be between 3 and 36 months (3 years)'),
+  body('emiAmount').isNumeric().withMessage('EMI amount must be a number'),
+  body('totalInterest').isNumeric().withMessage('Total interest must be a number'),
+  body('totalAmount').isNumeric().withMessage('Total amount must be a number'),
+  body('interestRate').isNumeric().withMessage('Interest rate must be a number')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const loan = await Loan.findOne({ _id: req.params.loanId, user: req.user._id });
+    
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan application not found' });
+    }
+
+    if (loan.status !== 'approved' && loan.status !== 'tenure_selection') {
+      return res.status(400).json({ message: 'Loan must be approved before selecting tenure' });
+    }
+
+    const { tenure, emiAmount, totalInterest, totalAmount, interestRate } = req.body;
+
+    loan.tenure = tenure;
+    loan.emiAmount = emiAmount;
+    loan.totalInterest = totalInterest;
+    loan.totalAmount = totalAmount;
+    loan.interestRate = interestRate;
+    loan.status = 'tenure_selection';
+    await loan.save();
+
+    res.json({
+      message: 'Tenure selected successfully',
+      loan: {
+        id: loan._id,
+        tenure: loan.tenure,
+        emiAmount: loan.emiAmount,
+        status: loan.status
+      }
+    });
+  } catch (error) {
+    console.error('Select tenure error:', error);
+    res.status(500).json({ message: 'Server error during tenure selection' });
+  }
+});
+
+// @route   POST /api/loans/:loanId/view-sanction-letter
+// @desc    Mark sanction letter as viewed
+// @access  Private
+router.post('/:loanId/view-sanction-letter', auth, async (req, res) => {
+  try {
+    const loan = await Loan.findOne({ _id: req.params.loanId, user: req.user._id });
+    
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan application not found' });
+    }
+
+    loan.sanctionLetterViewed = true;
+    if (loan.status === 'tenure_selection') {
+      loan.status = 'sanction_letter_viewed';
+    }
+    await loan.save();
+
+    res.json({
+      message: 'Sanction letter viewed',
+      loan: {
+        id: loan._id,
+        sanctionLetterViewed: loan.sanctionLetterViewed,
+        status: loan.status
+      }
+    });
+  } catch (error) {
+    console.error('View sanction letter error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/loans/:loanId/sign
+// @desc    Submit digital signature
+// @access  Private
+router.post('/:loanId/sign', auth, [
+  body('signature').notEmpty().withMessage('Signature is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const loan = await Loan.findOne({ _id: req.params.loanId, user: req.user._id });
+    
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan application not found' });
+    }
+
+    if (loan.status !== 'sanction_letter_viewed' && loan.status !== 'signature_pending') {
+      return res.status(400).json({ message: 'Loan is not in the correct status for signature' });
+    }
+
+    const { signature } = req.body;
+
+    loan.digitalSignature = signature;
+    loan.signatureDate = new Date();
+    loan.status = 'payment_pending';
+    await loan.save();
+
+    res.json({
+      message: 'Signature submitted successfully',
+      loan: {
+        id: loan._id,
+        status: loan.status,
+        signatureDate: loan.signatureDate
+      }
+    });
+  } catch (error) {
+    console.error('Signature error:', error);
+    res.status(500).json({ message: 'Server error during signature submission' });
   }
 });
 

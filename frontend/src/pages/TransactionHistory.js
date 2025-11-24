@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft, CheckCircle, XCircle, Clock, CreditCard, Menu, X, Home, FileText, LogOut } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, CreditCard, Menu, X, Home, FileText, LogOut, History } from 'lucide-react';
 import { Loader } from '../components/ui/Loader';
 
 const TransactionHistory = () => {
@@ -24,8 +24,16 @@ const TransactionHistory = () => {
       const loans = response.data.loans || [];
       
       // Convert loans with payments to transactions
+      // Show transactions for loans that have payment info OR are in payment-related statuses
       const txns = loans
-        .filter(loan => loan.depositPaid && loan.paymentAt)
+        .filter(loan => 
+          (loan.depositPaid && loan.paymentAt) || 
+          loan.status === 'payment_validation' || 
+          loan.status === 'payment_pending' ||
+          loan.status === 'payment_failed' ||
+          loan.status === 'processing' ||
+          (loan.paymentAt && loan.totalPaymentAmount > 0)
+        )
         .map(loan => {
           // Determine transaction status based on loan status and payment status
           let txnStatus = 'pending';
@@ -65,15 +73,15 @@ const TransactionHistory = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-success" />;
+        return <CheckCircle className="w-5 h-5 text-green-600" />;
       case 'under_review':
-        return <Clock className="w-5 h-5 text-warning animate-pulse" />;
+        return <Clock className="w-5 h-5 text-blue-600 animate-pulse" />;
       case 'pending':
-        return <Clock className="w-5 h-5 text-warning" />;
+        return <Clock className="w-5 h-5 text-yellow-600" />;
       case 'failed':
-        return <XCircle className="w-5 h-5 text-error" />;
+        return <XCircle className="w-5 h-5 text-red-600" />;
       default:
-        return <Clock className="w-5 h-5 text-muted-foreground" />;
+        return <Clock className="w-5 h-5 text-gray-500" />;
     }
   };
 
@@ -123,40 +131,39 @@ const TransactionHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-100">
       {/* Navigation */}
-      <nav className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-lg mx-auto px-4 py-3 md:py-4">
           <div className="flex items-center justify-between">
-            {/* Desktop: Back Button */}
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/home")}
-              className="rounded-xl hidden md:flex"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Button>
-            
-            {/* Mobile: Title */}
-            <div className="text-lg md:text-2xl font-bold text-gradient md:absolute md:left-1/2 md:transform md:-translate-x-1/2">
-              Transaction History
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate("/home")}
+                className="text-gray-700 hover:bg-gray-100 rounded-full p-2 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="text-xl md:text-2xl font-bold text-[#14b8a6]" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Transaction History
+              </div>
             </div>
 
-            {/* Desktop: Right Side */}
-            <div className="hidden md:flex gap-3 items-center">
+            {/* Desktop Menu */}
+            <div className="hidden md:flex gap-2 items-center">
               <Button
-                variant="outline"
-                onClick={() => navigate("/applications")}
-                className="rounded-xl"
+                variant="ghost"
+                onClick={() => navigate('/my-loans')}
+                className="rounded-xl text-gray-700 hover:bg-gray-50"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
               >
                 <FileText className="w-4 h-4 mr-2" />
-                Applications
+                My Loans
               </Button>
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={() => navigate("/home")}
-                className="rounded-xl"
+                className="rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
               >
                 <Home className="w-4 h-4 mr-2" />
                 Home
@@ -166,7 +173,7 @@ const TransactionHistory = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? (
@@ -179,52 +186,63 @@ const TransactionHistory = () => {
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden mt-4 pb-4 border-t border-border pt-4 space-y-2">
+            <div className="md:hidden mt-4 pb-4 border-t border-gray-200 pt-4 space-y-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  navigate('/my-loans');
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full rounded-xl justify-start text-gray-700"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                My Loan Applications
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => {
                   navigate("/home");
                   setMobileMenuOpen(false);
                 }}
-                className="w-full rounded-xl justify-start"
+                className="w-full rounded-xl justify-start border-gray-300 text-gray-700"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
               >
                 <Home className="w-4 h-4 mr-2" />
                 Home
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  navigate("/applications");
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full rounded-xl justify-start"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                My Applications
               </Button>
             </div>
           )}
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-4 md:py-8">
+      <div className="max-w-lg mx-auto px-4 py-4 md:py-6">
         {/* Header */}
         <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-4xl font-bold mb-2">Your Transactions</h1>
-          <p className="text-sm md:text-base text-muted-foreground">View all your payment history and loan transactions</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+            Your Transactions
+          </h1>
+          <p className="text-sm md:text-base text-gray-600" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+            View all your payment history and loan transactions
+          </p>
         </div>
 
         {/* Transactions List */}
         {transactions.length === 0 ? (
-          <div className="bg-card rounded-3xl p-12 text-center border border-border">
-            <CreditCard className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-2xl font-bold mb-4">No Transactions Yet</h2>
-            <p className="text-muted-foreground mb-6">
+          <div className="bg-white rounded-2xl md:rounded-3xl p-8 md:p-12 text-center border border-gray-200 shadow-lg">
+            <div className="w-20 h-20 mx-auto mb-4 bg-[#14b8a6]/10 rounded-full flex items-center justify-center">
+              <CreditCard className="w-10 h-10 text-[#14b8a6]" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-3" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+              No Transactions Yet
+            </h2>
+            <p className="text-gray-600 mb-6" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
               Your payment transactions will appear here once you complete a loan payment.
             </p>
             <Button
               onClick={() => navigate("/home")}
-              className="gradient-primary text-primary-foreground rounded-xl"
+              className="bg-[#14b8a6] hover:bg-[#0d9488] text-white rounded-xl px-8"
+              style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
             >
               Go to Home
             </Button>
@@ -234,63 +252,73 @@ const TransactionHistory = () => {
             {transactions.map((txn) => (
               <div
                 key={txn.id}
-                className="bg-card rounded-3xl p-6 border border-border hover-lift"
+                className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-full ${getStatusColor(txn.status).split(' ')[0]}`}>
+                    <div className={`p-3 rounded-full ${
+                      txn.status === 'completed' ? 'bg-green-100' :
+                      txn.status === 'under_review' ? 'bg-blue-100' :
+                      txn.status === 'pending' ? 'bg-yellow-100' :
+                      'bg-red-100'
+                    }`}>
                       {getStatusIcon(txn.status)}
                     </div>
                     <div>
-                      <div className="text-sm text-muted-foreground mb-1">Transaction ID</div>
-                      <div className="font-bold text-lg">{txn.id}</div>
+                      <div className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Transaction ID</div>
+                      <div className="font-bold text-base text-gray-800" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>{txn.id?.slice(-12) || txn.id}</div>
                       {txn.status === 'under_review' && (
-                        <div className="text-xs text-warning mt-1 font-medium flex items-center gap-1">
+                        <div className="text-xs text-blue-600 mt-1 font-medium flex items-center gap-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                           <Clock className="w-3 h-3" />
                           Transaction is under review
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className={`px-4 py-2 rounded-full text-sm font-bold border ${getStatusColor(txn.status)}`}>
+                  <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${
+                    txn.status === 'completed' ? 'bg-green-500 text-white' :
+                    txn.status === 'under_review' ? 'bg-blue-500 text-white' :
+                    txn.status === 'pending' ? 'bg-yellow-500 text-white' :
+                    'bg-red-500 text-white'
+                  }`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                     {getStatusText(txn.status)}
                   </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Loan ID</div>
-                    <div className="font-semibold">GL-{txn.loanId}</div>
+                    <div className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Loan ID</div>
+                    <div className="font-semibold text-gray-800" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>GL-{txn.loanId}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Payment Method</div>
-                    <div className="font-semibold">{txn.method}</div>
+                    <div className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Payment Method</div>
+                    <div className="font-semibold text-gray-800" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>{txn.method}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Loan Amount</div>
-                    <div className="font-semibold text-accent">₹{txn.loanAmount?.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Loan Amount</div>
+                    <div className="font-semibold text-[#14b8a6]" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>₹{txn.loanAmount?.toLocaleString()}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Payment Amount</div>
-                    <div className="font-bold text-lg text-success">₹{txn.amount.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Payment Amount</div>
+                    <div className="font-bold text-lg text-green-600" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>₹{txn.amount.toLocaleString()}</div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-border">
+                <div className="pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-muted-foreground mb-1">Transaction Date</div>
-                      <div className="font-medium">{formatDate(txn.date)}</div>
+                      <div className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Transaction Date</div>
+                      <div className="font-medium text-sm text-gray-800" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>{formatDate(txn.date)}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-muted-foreground mb-1">Loan Status</div>
-                      <div className={`font-semibold ${
-                        txn.loanStatus === 'payment_validation' ? 'text-warning animate-pulse' :
-                        txn.loanStatus === 'processing' ? 'text-processing' :
-                        txn.loanStatus === 'completed' ? 'text-success' :
-                        txn.loanStatus === 'approved' ? 'text-success' :
-                        'text-muted-foreground'
-                      }`}>
+                      <div className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Loan Status</div>
+                      <div className={`font-semibold text-sm ${
+                        txn.loanStatus === 'payment_validation' ? 'text-blue-600' :
+                        txn.loanStatus === 'processing' ? 'text-green-600' :
+                        txn.loanStatus === 'completed' ? 'text-green-600' :
+                        txn.loanStatus === 'approved' ? 'text-green-600' :
+                        'text-gray-600'
+                      }`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                         {txn.loanStatus === 'payment_validation' ? 'Under Review' :
                          txn.loanStatus ? txn.loanStatus.charAt(0).toUpperCase() + txn.loanStatus.slice(1).replace('_', ' ') : 'N/A'}
                       </div>
@@ -304,22 +332,22 @@ const TransactionHistory = () => {
 
         {/* Summary Card */}
         {transactions.length > 0 && (
-          <div className="mt-8 bg-gradient-hero rounded-3xl p-6 text-white">
-            <h3 className="text-xl font-bold mb-4">Transaction Summary</h3>
+          <div className="mt-6 md:mt-8 bg-gradient-to-r from-[#14b8a6] to-[#0d9488] rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-lg">
+            <h3 className="text-lg md:text-xl font-bold mb-4" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Transaction Summary</h3>
             <div className="grid md:grid-cols-3 gap-4">
               <div>
-                <div className="text-sm text-white/70 mb-1">Total Transactions</div>
-                <div className="text-2xl font-bold">{transactions.length}</div>
+                <div className="text-xs md:text-sm text-white/80 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Total Transactions</div>
+                <div className="text-xl md:text-2xl font-bold" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>{transactions.length}</div>
               </div>
               <div>
-                <div className="text-sm text-white/70 mb-1">Total Amount Paid</div>
-                <div className="text-2xl font-bold text-accent">
+                <div className="text-xs md:text-sm text-white/80 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Total Amount Paid</div>
+                <div className="text-xl md:text-2xl font-bold" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                   ₹{transactions.reduce((sum, txn) => sum + txn.amount, 0).toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-white/70 mb-1">Completed</div>
-                <div className="text-2xl font-bold">
+                <div className="text-xs md:text-sm text-white/80 mb-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Completed</div>
+                <div className="text-xl md:text-2xl font-bold" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                   {transactions.filter(t => t.status === 'completed').length}
                 </div>
               </div>

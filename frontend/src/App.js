@@ -11,9 +11,14 @@ import ProfileSetup from './pages/ProfileSetup';
 import Landing from './pages/Landing';
 import TransactionHistory from './pages/TransactionHistory';
 import Payment from './pages/Payment';
+import BankDetails from './pages/BankDetails';
+import TenureSelection from './pages/TenureSelection';
+import SanctionLetter from './pages/SanctionLetter';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import NotFound from './pages/NotFound';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import Contact from './pages/Contact';
 import { Loader } from './components/ui/Loader';
 import './App.css';
 
@@ -99,7 +104,23 @@ function App() {
               } 
             />
             <Route 
-              path="/transactions" 
+              path="/my-loans" 
+              element={
+                <ProfileCheckRoute>
+                  <LoanApplications />
+                </ProfileCheckRoute>
+              } 
+            />
+            <Route 
+              path="/loan-applications" 
+              element={
+                <ProfileCheckRoute>
+                  <LoanApplications />
+                </ProfileCheckRoute>
+              } 
+            />
+            <Route 
+              path="/transaction-history" 
               element={
                 <ProfileCheckRoute>
                   <TransactionHistory />
@@ -114,11 +135,37 @@ function App() {
                 </ProfileCheckRoute>
               } 
             />
+            <Route 
+              path="/bank-details" 
+              element={
+                <ProfileCheckRoute>
+                  <BankDetails />
+                </ProfileCheckRoute>
+              } 
+            />
+            <Route 
+              path="/tenure-selection" 
+              element={
+                <ProfileCheckRoute>
+                  <TenureSelection />
+                </ProfileCheckRoute>
+              } 
+            />
+            <Route 
+              path="/sanction-letter" 
+              element={
+                <ProfileCheckRoute>
+                  <SanctionLetter />
+                </ProfileCheckRoute>
+              } 
+            />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route 
               path="/admin/dashboard" 
               element={<AdminDashboard />} 
             />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/contact" element={<Contact />} />
             {/* Catch-all route for 404 - must be last */}
             <Route path="*" element={<NotFound />} />
           </Routes>

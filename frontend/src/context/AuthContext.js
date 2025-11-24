@@ -18,6 +18,7 @@ export const useAuth = () => {
 const API_URL = process.env.NODE_ENV === 'production' 
   ? '/api'  // Relative path - nginx will proxy to backend
   : 'http://217.15.166.124:5000/api';  // Direct URL for development
+  // : 'http://localhost:5000/api';  // Direct URL for development
 
 axios.defaults.baseURL = API_URL;
 

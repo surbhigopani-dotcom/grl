@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { auth, setupRecaptcha, firebaseConfig } from '../config/firebase';
 import { signInWithPhoneNumber, PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
@@ -624,29 +624,38 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-hero flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
+    <div className="min-h-screen gradient-hero flex flex-col">
+      {/* Header - Fixed at top */}
+      <div className="w-full py-4 px-4 bg-[#14b8a6]">
+        <div className="flex items-center justify-between max-w-md mx-auto">
+          <button
             onClick={() => navigate(-1)}
-            className="text-white hover:bg-white/20"
+            className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+            aria-label="Go back"
           >
             <ArrowLeft className="w-6 h-6" />
-          </Button>
-          <h1 className="text-2xl font-bold text-white">Welcome to GrowLoan</h1>
+          </button>
+          <h1 className="text-xl md:text-2xl font-bold text-white" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+            Welcome to GrowLoan
+          </h1>
           <div className="w-10" />
         </div>
+      </div>
 
-        {/* Card */}
-        <div className="bg-card rounded-3xl p-8 shadow-2xl">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="text-3xl font-bold text-gradient mb-2">GROW ₹ LOAN</div>
-            <p className="text-muted-foreground">Fast & Secure Loans</p>
-          </div>
+      {/* Main Content - Centered */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          {/* Card */}
+          <div className="bg-white rounded-3xl p-6 md:p-8 shadow-2xl" style={{ borderRadius: '24px' }}>
+            {/* Logo */}
+            <div className="text-center mb-8">
+              <div className="text-3xl md:text-4xl font-bold text-[#14b8a6] mb-2" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', letterSpacing: '-0.5px' }}>
+                GROW ₹ LOAN
+              </div>
+              <p className="text-sm md:text-base text-gray-600" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Fast & Secure Loans
+              </p>
+            </div>
 
           {/* reCAPTCHA container - invisible, handled automatically in background */}
           {/* Keep this element in DOM at all times to prevent null reference errors */}
@@ -669,35 +678,57 @@ const Login = () => {
           {step === 'phone' && (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Phone Number</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontWeight: 500 }}>
+                  Phone Number
+                </label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <div className="absolute left-12 top-1/2 -translate-y-1/2 text-muted-foreground">+91</div>
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                  <div className="absolute left-12 top-1/2 -translate-y-1/2 text-gray-600 font-medium z-10" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>+91</div>
                   <Input
                     type="tel"
-                    placeholder="Enter 10-digit phone number"
+                    placeholder="Enter 10-digit phone num"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    className="pl-20 h-14 text-lg rounded-xl"
+                    className="pl-20 h-14 text-base rounded-xl border-gray-300 bg-gray-50 focus:bg-white focus:border-[#14b8a6] focus:ring-2 focus:ring-[#14b8a6]/20 transition-all"
+                    style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                     maxLength={10}
                   />
                 </div>
               </div>
 
-              <div className="flex items-start space-x-2">
+              <div className="flex items-start space-x-3">
                 <Checkbox
                   id="privacy"
                   checked={privacyAccepted}
                   onCheckedChange={(checked) => setPrivacyAccepted(checked)}
+                  className="mt-0.5 border-gray-300 data-[state=checked]:bg-[#14b8a6] data-[state=checked]:border-[#14b8a6]"
                 />
-                <label htmlFor="privacy" className="text-sm text-muted-foreground cursor-pointer">
-                  I accept the privacy policy and terms of service
+                <label htmlFor="privacy" className="text-sm text-gray-700 cursor-pointer leading-relaxed flex-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  I accept the{' '}
+                  <Link 
+                    to="/privacy" 
+                    className="text-[#14b8a6] hover:underline font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                  >
+                    privacy policy
+                  </Link>
+                  {' '}and{' '}
+                  <Link 
+                    to="/privacy" 
+                    className="text-[#14b8a6] hover:underline font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                  >
+                    terms of service
+                  </Link>
                 </label>
               </div>
 
               <Button
                 onClick={handleSendOTP}
-                className="w-full gradient-primary text-primary-foreground h-14 text-lg rounded-xl"
+                className="w-full bg-[#14b8a6] hover:bg-[#0d9488] text-white h-14 text-lg font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 disabled={loading || phone.length !== 10 || !privacyAccepted || (OTP_ENABLED && retryAfter !== null && retryAfter > 0)}
               >
                 {loading 
@@ -709,7 +740,7 @@ const Login = () => {
                       : 'Send OTP'}
               </Button>
               {retryAfter !== null && retryAfter > 0 && (
-                <p className="text-sm text-center text-muted-foreground mt-2">
+                <p className="text-sm text-center text-gray-600 mt-2" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                   Too many attempts. Please wait before trying again.
                 </p>
               )}
@@ -720,19 +751,23 @@ const Login = () => {
           {step === 'name' && !OTP_ENABLED && (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Your Name</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Your Name
+                </label>
                 <Input
                   type="text"
                   placeholder="Enter your full name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-14 text-lg rounded-xl"
+                  className="h-14 text-base rounded-xl border-gray-300 focus:border-[#14b8a6] focus:ring-[#14b8a6]"
+                  style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 />
               </div>
 
               <Button
                 onClick={handleNameSubmit}
-                className="w-full gradient-primary text-primary-foreground h-14 text-lg rounded-xl"
+                className="w-full bg-[#14b8a6] hover:bg-[#0d9488] text-white h-14 text-lg font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 disabled={loading || !name.trim()}
               >
                 {loading ? 'Creating Account...' : 'Create Account'}
@@ -745,27 +780,33 @@ const Login = () => {
             <div className="space-y-6">
               {isNewUser && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Your Name</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                    Your Name
+                  </label>
                   <Input
                     type="text"
                     placeholder="Enter your full name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="h-14 text-lg rounded-xl"
+                    className="h-14 text-base rounded-xl border-gray-300 focus:border-[#14b8a6] focus:ring-[#14b8a6]"
+                    style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium mb-2">Enter OTP</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Enter OTP
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="text"
                     placeholder="Enter 6-digit OTP"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="pl-12 h-14 text-lg tracking-widest rounded-xl"
+                    className="pl-12 h-14 text-lg tracking-widest rounded-xl border-gray-300 focus:border-[#14b8a6] focus:ring-[#14b8a6]"
+                    style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                     maxLength={6}
                   />
                 </div>
@@ -775,7 +816,8 @@ const Login = () => {
                 <Button
                   variant="link"
                   onClick={handleResendOTP}
-                  className="text-primary"
+                  className="text-[#14b8a6] hover:text-[#0d9488]"
+                  style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                   disabled={loading}
                 >
                   Resend OTP
@@ -784,17 +826,29 @@ const Login = () => {
 
               <Button
                 onClick={handleVerifyOTP}
-                className="w-full gradient-primary text-primary-foreground h-14 text-lg rounded-xl"
+                className="w-full bg-[#14b8a6] hover:bg-[#0d9488] text-white h-14 text-lg font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 disabled={loading || !privacyAccepted || otp.length !== 6 || (isNewUser && !name.trim())}
               >
                 {loading ? 'Verifying...' : 'Verify OTP'}
               </Button>
             </div>
           )}
+          </div>
         </div>
+      </div>
 
-        <p className="text-center text-white/70 text-sm mt-6">
-          By continuing, you agree to our Terms of Service and Privacy Policy
+      {/* Footer Disclaimer */}
+      <div className="w-full pb-6 px-4 mt-auto">
+        <p className="text-center text-[#14b8a6]/90 text-xs md:text-sm max-w-md mx-auto leading-relaxed" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+          By continuing, you agree to our{' '}
+          <Link to="/privacy" className="text-[#14b8a6] hover:underline font-medium">
+            Terms of Service
+          </Link>
+          {' '}and{' '}
+          <Link to="/privacy" className="text-[#14b8a6] hover:underline font-medium">
+            Privacy Policy
+          </Link>
         </p>
       </div>
 
