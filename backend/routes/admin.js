@@ -216,7 +216,7 @@ router.post('/payments/:loanId/reject', [
     }
 
     loan.paymentStatus = 'failed';
-    loan.status = 'approved'; // Revert to approved so user can retry payment
+    loan.status = 'payment_failed'; // Set to payment_failed so user can retry payment
     loan.depositPaid = false; // Reset deposit paid flag
     loan.remarks = req.body.reason || 'Payment verification failed';
 

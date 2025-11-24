@@ -51,11 +51,13 @@ const SanctionLetter = () => {
 
         setLoan(loanData);
         
-        // Show signature section if tenure is selected and signature not provided
-        // Always show signature when tenure_selection status and no signature
-        if (loanData.status === 'tenure_selection' && loanData.tenure > 0 && !loanData.digitalSignature) {
+        // Always show signature section if tenure is selected and signature not provided
+        // This ensures signature is always available when needed
+        if (!loanData.digitalSignature && loanData.tenure > 0) {
+          // Always show signature section when tenure is selected and signature not done
           setShowSignature(true);
         } else {
+          // If signature exists or no tenure, check location state
           setShowSignature(location.state?.showSignature || false);
         }
         
@@ -74,6 +76,45 @@ const SanctionLetter = () => {
 
     loadLoan();
   }, [location.state, navigate]);
+
+  // Refresh loan data periodically to ensure signature status is up-to-date
+  useEffect(() => {
+    if (!loan) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const loanId = loan.id || loan._id;
+        if (!loanId) return;
+        
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        if (!axios.defaults.headers.common['Authorization']) {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await axios.get(`/loans/${loanId}/status`);
+        const updatedLoan = response.data.loan;
+        
+        // Update loan data
+        setLoan(updatedLoan);
+        
+        // If signature was just added, show it
+        if (updatedLoan.digitalSignature && !loan.digitalSignature) {
+          setShowSignature(false); // Hide signature section since it's done
+        }
+        
+        // If tenure is selected and signature not done, ensure signature section is visible
+        if (!updatedLoan.digitalSignature && updatedLoan.tenure > 0) {
+          setShowSignature(true);
+        }
+      } catch (error) {
+        console.error('Error refreshing loan data:', error);
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [loan]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -187,8 +228,19 @@ const SanctionLetter = () => {
         signature: signature
       });
 
+      // Update loan data with new signature
+      const updatedLoan = response.data.loan;
+      if (updatedLoan) {
+        setLoan(updatedLoan);
+      }
+      
+      setShowSignature(false); // Hide signature section since it's done
       toast.success('Signature submitted successfully!');
-      navigate('/payment', { state: { loanId: loan.id || loan._id } });
+      
+      // Navigate to payment after a short delay
+      setTimeout(() => {
+        navigate('/payment', { state: { loanId: loan.id || loan._id } });
+      }, 1000);
     } catch (error) {
       console.error('Error submitting signature:', error);
       toast.error(error.response?.data?.message || 'Failed to submit signature');
@@ -230,8 +282,8 @@ const SanctionLetter = () => {
         {/* Sanction Letter */}
         <LoanSanctionLetter loan={loan} user={user} />
 
-        {/* Digital Signature Section - Show when tenure is selected and signature not provided */}
-        {loan && loan.status === 'tenure_selection' && loan.tenure > 0 && !loan.digitalSignature && (
+        {/* Digital Signature Section - Always show when tenure is selected and signature not provided */}
+        {loan && !loan.digitalSignature && loan.tenure > 0 && showSignature && (
           <div className="bg-white rounded-2xl p-5 md:p-6 shadow-lg border border-gray-200 mt-6">
             <h2 className="text-lg font-bold text-gray-800 mb-4" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
               Digital Signature
@@ -277,9 +329,44 @@ const SanctionLetter = () => {
           </div>
         )}
 
-        {/* Continue Button if signature already provided and payment not done */}
-        {loan.digitalSignature && !showSignature && !loan.depositPaid && (
+        {/* Show Signature Button - If signature not done but section is hidden */}
+        {loan && !loan.digitalSignature && loan.tenure > 0 && !showSignature && (
           <div className="mt-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+              <p className="text-sm text-yellow-800 mb-3" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                Please provide your digital signature to proceed with payment.
+              </p>
+              <Button
+                onClick={() => setShowSignature(true)}
+                className="w-full bg-[#14b8a6] hover:bg-[#0d9488] text-white rounded-xl h-11 text-base font-semibold"
+                style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+              >
+                Add Digital Signature
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Signature Completed - Show signature preview and payment button */}
+        {loan && loan.digitalSignature && !loan.depositPaid && (
+          <div className="mt-6">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+              <div className="flex items-center gap-3 mb-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <p className="text-sm font-semibold text-green-800" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Digital Signature Completed
+                </p>
+              </div>
+              {loan.digitalSignature && (
+                <div className="mb-3">
+                  <img 
+                    src={loan.digitalSignature} 
+                    alt="Digital Signature" 
+                    className="max-w-full h-20 border border-gray-300 rounded-lg bg-white object-contain"
+                  />
+                </div>
+              )}
+            </div>
             <Button
               onClick={() => navigate('/payment', { state: { loanId: loan.id || loan._id } })}
               className="w-full bg-[#14b8a6] hover:bg-[#0d9488] text-white rounded-xl h-12 text-base font-semibold"

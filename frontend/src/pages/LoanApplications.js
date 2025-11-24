@@ -47,7 +47,12 @@ const LoanApplications = () => {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status, paymentStatus) => {
+    // If paymentStatus is 'failed', show as payment_failed
+    if (paymentStatus === 'failed') {
+      return "bg-error text-error-foreground";
+    }
+    
     switch (status) {
       case "approved": return "bg-success text-success-foreground";
       case "pending": return "bg-warning text-warning-foreground";
@@ -66,7 +71,12 @@ const LoanApplications = () => {
     }
   };
 
-  const getStatusText = (status) => {
+  const getStatusText = (status, paymentStatus) => {
+    // If paymentStatus is 'failed', show as Payment Failed
+    if (paymentStatus === 'failed') {
+      return 'Payment Failed';
+    }
+    
     const texts = {
       pending: 'Pending',
       validating: 'Validating',
@@ -231,8 +241,8 @@ const LoanApplications = () => {
                     <div className="text-xs md:text-sm text-muted-foreground mb-1">Loan ID</div>
                     <div className="font-bold text-base md:text-lg">{loan.loanId || loan._id?.slice(-8)}</div>
                   </div>
-                  <div className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold ${getStatusColor(loan.status)}`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
-                    {getStatusText(loan.status).toUpperCase()}
+                  <div className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold ${getStatusColor(loan.status, loan.paymentStatus)}`} style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                    {getStatusText(loan.status, loan.paymentStatus).toUpperCase()}
                   </div>
                 </div>
 
@@ -308,7 +318,7 @@ const LoanApplications = () => {
                 </div>
 
                 {/* Sanction Letter View Button */}
-                {(loan.status === 'tenure_selection' || loan.status === 'sanction_letter_viewed' || loan.status === 'signature_pending' || loan.status === 'payment_pending' || loan.status === 'payment_validation' || loan.status === 'payment_failed' || loan.status === 'processing' || loan.status === 'completed') && loan.approvedAmount > 0 && (
+                {(loan.status === 'tenure_selection' || loan.status === 'sanction_letter_viewed' || loan.status === 'signature_pending' || loan.status === 'payment_pending' || loan.status === 'payment_validation' || loan.status === 'payment_failed' || (loan.paymentStatus === 'failed' && loan.status === 'approved') || loan.status === 'processing' || loan.status === 'completed') && loan.approvedAmount > 0 && (
                   <div className="mb-4 md:mb-6">
                     <Button
                       onClick={() => navigate('/sanction-letter', { state: { loanId: loan._id || loan.id } })}
@@ -322,7 +332,7 @@ const LoanApplications = () => {
                 )}
 
                 {/* Payment Failed - Complete Payment Button */}
-                {loan.status === 'payment_failed' && loan.approvedAmount > 0 && (
+                {(loan.status === 'payment_failed' || (loan.paymentStatus === 'failed' && loan.status === 'approved')) && loan.approvedAmount > 0 && (
                   <div className="mb-4 md:mb-6">
                     <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
                       <div className="flex items-start gap-3">

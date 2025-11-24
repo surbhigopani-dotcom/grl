@@ -107,7 +107,8 @@ const Home = () => {
       
       // Set current loan (most recent active loan - priority order)
       // Priority: payment_failed > payment_pending > payment_validation > processing > others
-      const activeLoan = loans.find(loan => loan.status === 'payment_failed') ||
+      // Also check paymentStatus === 'failed' for loans rejected by admin
+      const activeLoan = loans.find(loan => loan.status === 'payment_failed' || (loan.paymentStatus === 'failed' && loan.status === 'approved')) ||
                          loans.find(loan => loan.status === 'payment_pending') ||
                          loans.find(loan => loan.status === 'payment_validation') ||
                          loans.find(loan => loan.status === 'processing') ||
@@ -656,7 +657,7 @@ const Home = () => {
         )}
 
         {/* Payment Failed Card */}
-        {currentLoan && currentLoan.status === 'payment_failed' && (
+        {currentLoan && (currentLoan.status === 'payment_failed' || (currentLoan.paymentStatus === 'failed' && currentLoan.status === 'approved')) && (
           <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-lg border-2 border-red-200 mb-4 md:mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg md:text-xl font-bold text-red-600" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
