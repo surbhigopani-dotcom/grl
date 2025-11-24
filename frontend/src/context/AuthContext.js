@@ -113,8 +113,16 @@ export const AuthProvider = ({ children }) => {
         exists: response.data.exists
       };
     } catch (error) {
-      console.error('Check user error:', error);
-      // If check fails, assume new user to be safe
+      // Handle 502 Bad Gateway and other network errors gracefully
+      // Don't log 502 errors to console as they're expected when backend is temporarily unavailable
+      if (error.response?.status === 502 || error.code === 'ERR_BAD_RESPONSE') {
+        // Backend server is temporarily unavailable - silently fallback
+        // This is expected behavior when backend is down or nginx proxy fails
+      } else {
+        // Log other errors (network issues, 500 errors, etc.)
+        console.warn('Check user warning:', error.message);
+      }
+      // If check fails, assume new user to be safe (allows login to continue)
       return { success: true, isNewUser: true, exists: false };
     }
   };
