@@ -228,7 +228,21 @@ router.post('/payments/:loanId/reject', [
     });
   } catch (error) {
     console.error('Reject payment error:', error);
-    res.status(500).json({ message: 'Server error' });
+    // Provide more detailed error message
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        error: error.message,
+        details: Object.keys(error.errors || {}).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      });
+    }
+    res.status(500).json({ 
+      message: 'Server error',
+      error: error.message || 'Unknown error occurred'
+    });
   }
 });
 
