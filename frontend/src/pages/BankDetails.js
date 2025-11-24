@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -18,6 +18,13 @@ const BankDetails = () => {
     bankName: user?.bankName || '',
     accountHolderName: user?.accountHolderName || user?.name || ''
   });
+
+  // Show message if redirected from payment completion
+  React.useEffect(() => {
+    if (location.state?.message) {
+      toast.info(location.state.message, { autoClose: 5000 });
+    }
+  }, [location.state]);
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -73,13 +80,13 @@ const BankDetails = () => {
       await fetchUser();
       toast.success('Bank details saved successfully!');
       
-      // Navigate back to home or payment page
-      const loanId = location.state?.loanId;
-      if (loanId) {
-        navigate('/payment', { state: { loanId } });
-      } else {
-        navigate('/home');
+      // Show message about 15 days processing time
+      if (location.state?.paymentSuccess) {
+        toast.info('✅ Payment verified! Funds will be disbursed to your bank account within 15 days.');
       }
+      
+      // Navigate back to home
+      navigate('/home', { state: { bankDetailsSaved: true } });
     } catch (error) {
       console.error('Error saving bank details:', error);
       toast.error(error.response?.data?.message || 'Failed to save bank details');
@@ -120,10 +127,15 @@ const BankDetails = () => {
               <h3 className="font-bold text-[#14b8a6] mb-2">
                 Complete Your Loan Process
               </h3>
-              <p className="text-sm text-foreground">
+              <p className="text-sm text-foreground mb-2">
                 To complete your loan application and enable disbursement, please provide your bank account details. 
                 This information is required for loan processing and fund transfer.
               </p>
+              {location.state?.paymentSuccess && (
+                <p className="text-sm font-semibold text-[#14b8a6] mt-2">
+                  ✅ Payment verified! Funds will be disbursed to your bank account within 15 days after verification.
+                </p>
+              )}
             </div>
           </div>
         </div>

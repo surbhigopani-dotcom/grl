@@ -1072,12 +1072,12 @@ const Home = () => {
                 <Button
                   onClick={() => {
                     setShowApprovalPopup(false);
-                    navigate('/payment', { state: { loanId: approvedLoanData.id || approvedLoanData._id } });
+                    navigate('/tenure-selection', { state: { loanId: approvedLoanData.id || approvedLoanData._id } });
                   }}
                   className="w-full bg-[#14b8a6] hover:bg-[#0d9488] text-white rounded-xl h-12 text-lg font-semibold"
                   style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 >
-                  Proceed to Payment
+                  Select Tenure
                 </Button>
                 <Button
                   onClick={() => setShowApprovalPopup(false)}

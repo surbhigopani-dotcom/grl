@@ -60,24 +60,29 @@ const ProfileSetup = () => {
   const validateStep = () => {
     if (currentStep === 1) {
       if (!formData.name || !formData.email || !formData.dateOfBirth) {
+        toast.dismiss(); // Dismiss any existing toasts
         toast.error('Please fill all required fields');
         return false;
       }
     } else if (currentStep === 2) {
       if (!formData.address || !formData.city || !formData.state || !formData.pincode || !formData.employmentType) {
+        toast.dismiss(); // Dismiss any existing toasts
         toast.error('Please fill all required fields');
         return false;
       }
       if (formData.employmentType !== 'unemployed' && !formData.companyName) {
+        toast.dismiss(); // Dismiss any existing toasts
         toast.error('Please enter company name');
         return false;
       }
     } else if (currentStep === 3) {
       if (!formData.aadharNumber || !formData.panNumber) {
+        toast.dismiss(); // Dismiss any existing toasts
         toast.error('Please enter Aadhar and PAN numbers');
         return false;
       }
       if (!documents.aadharCard || !documents.panCard || !documents.selfie) {
+        toast.dismiss(); // Dismiss any existing toasts
         toast.error('Please upload all required documents (Aadhar, PAN, and Selfie)');
         return false;
       }
@@ -98,6 +103,9 @@ const ProfileSetup = () => {
   const handleFileUpload = async (file, documentType) => {
     if (!file) return;
 
+    // Dismiss any existing toasts to prevent duplicates
+    toast.dismiss();
+
     // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
@@ -105,9 +113,9 @@ const ProfileSetup = () => {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size should be less than 5MB');
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size should be less than 50MB');
       return;
     }
 
@@ -130,21 +138,33 @@ const ProfileSetup = () => {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
         },
-        timeout: 30000 // 30 seconds timeout
+        timeout: 60000 // 60 seconds timeout for larger files
       });
 
       if (response.data && response.data.success) {
         const url = response.data.url;
         setDocuments(prev => ({ ...prev, [documentType]: url }));
+        toast.dismiss(); // Dismiss any previous toasts
         toast.success(`${documentType === 'aadharCard' ? 'Aadhar' : documentType === 'panCard' ? 'PAN' : 'Selfie'} uploaded successfully!`);
       } else {
         throw new Error('Upload failed: Invalid response');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      if (error.response) {
+      toast.dismiss(); // Dismiss any previous toasts
+      
+      // Handle specific error cases
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        toast.error('Upload timeout. Please try again with a smaller file or check your connection.');
+      } else if (error.response) {
         // Server responded with error
-        toast.error(error.response.data?.message || 'Failed to upload document');
+        const errorMessage = error.response.data?.message || 'Failed to upload document';
+        // Check if error message contains file size info
+        if (errorMessage.toLowerCase().includes('file size') || errorMessage.toLowerCase().includes('too large')) {
+          toast.error('File size too large. Maximum size is 50MB.');
+        } else {
+          toast.error(errorMessage);
+        }
       } else if (error.request) {
         // Request made but no response
         toast.error('Network error. Please check your connection and try again.');
@@ -178,6 +198,7 @@ const ProfileSetup = () => {
 
   const handleSubmit = async () => {
     if (!selectedAmount || selectedAmount < 10000) {
+      toast.dismiss(); // Dismiss any existing toasts
       toast.error('Please select a valid loan amount (minimum ₹10,000)');
       return;
     }
@@ -200,6 +221,7 @@ const ProfileSetup = () => {
       });
 
       const loan = loanResponse.data.loan;
+      toast.dismiss(); // Dismiss any existing toasts
       toast.success('Profile completed! Validating your documents...');
 
       // Check loan status before trying to validate
@@ -225,6 +247,7 @@ const ProfileSetup = () => {
         navigate('/home', { state: { loanId: loan.id } });
       }
     } catch (error) {
+      toast.dismiss(); // Dismiss any existing toasts
       toast.error(error.response?.data?.message || 'Failed to complete setup');
     } finally {
       setLoading(false);
@@ -533,7 +556,7 @@ const ProfileSetup = () => {
                           <>
                             <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
                             <span className="text-sm font-medium text-[#14b8a6]">Click to upload Aadhar Card</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 5MB)</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 50MB)</span>
                           </>
                         )}
                       </label>
@@ -594,7 +617,7 @@ const ProfileSetup = () => {
                           <>
                             <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
                             <span className="text-sm font-medium text-[#14b8a6]">Click to upload PAN Card</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 5MB)</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 50MB)</span>
                           </>
                         )}
                       </label>
@@ -656,7 +679,7 @@ const ProfileSetup = () => {
                           <>
                             <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
                             <span className="text-sm font-medium text-[#14b8a6]">Click to upload Selfie</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 5MB)</span>
+                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 50MB)</span>
                           </>
                         )}
                       </label>

@@ -50,7 +50,14 @@ const SanctionLetter = () => {
         }
 
         setLoan(loanData);
-        setShowSignature(location.state?.showSignature || false);
+        
+        // Show signature section if tenure is selected and signature not provided
+        // Always show signature when tenure_selection status and no signature
+        if (loanData.status === 'tenure_selection' && loanData.tenure > 0 && !loanData.digitalSignature) {
+          setShowSignature(true);
+        } else {
+          setShowSignature(location.state?.showSignature || false);
+        }
         
         // Mark sanction letter as viewed if not already
         if (!loanData.sanctionLetterViewed && (loanData.status === 'tenure_selection' || loanData.status === 'approved')) {
@@ -223,8 +230,8 @@ const SanctionLetter = () => {
         {/* Sanction Letter */}
         <LoanSanctionLetter loan={loan} user={user} />
 
-        {/* Digital Signature Section */}
-        {(showSignature || (!loan.digitalSignature && loan.status === 'sanction_letter_viewed')) && !loan.digitalSignature && (
+        {/* Digital Signature Section - Show when tenure is selected and signature not provided */}
+        {loan && loan.status === 'tenure_selection' && loan.tenure > 0 && !loan.digitalSignature && (
           <div className="bg-white rounded-2xl p-5 md:p-6 shadow-lg border border-gray-200 mt-6">
             <h2 className="text-lg font-bold text-gray-800 mb-4" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
               Digital Signature

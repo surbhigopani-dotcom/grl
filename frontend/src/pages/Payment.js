@@ -127,14 +127,45 @@ const Payment = () => {
         const updatedLoan = response.data.loan;
 
         if (updatedLoan.status === 'payment_validation' || updatedLoan.status === 'processing') {
-          setPaymentVerified(true);
-          setVerifying(false);
-          toast.success('✅ Payment verified successfully!');
+          // Only show notification if not already verified (prevent duplicate)
+          if (!paymentVerified) {
+            setPaymentVerified(true);
+            setVerifying(false);
+            // Dismiss any existing toasts and show single success notification
+            toast.dismiss();
+            toast.success('✅ Payment verified successfully!', { autoClose: 3000 });
+          }
           
-          // Redirect to app/home after 2 seconds
-          setTimeout(() => {
-            navigate('/home', { state: { paymentSuccess: true, loanId: loan.id || loan._id } });
-          }, 2000);
+          // Check if user has bank details, if not navigate to bank details page
+          // Fetch user to check bank details
+          try {
+            const userResponse = await axios.get('/auth/me');
+            const userData = userResponse.data.user;
+            
+            // Check if bank details are missing
+            if (!userData.bankAccountNumber || !userData.ifscCode) {
+              // Navigate to bank details page after 2 seconds
+              setTimeout(() => {
+                navigate('/bank-details', { 
+                  state: { 
+                    paymentSuccess: true, 
+                    loanId: loan.id || loan._id,
+                    message: 'Please provide your bank details to receive the loan amount. Funds will be disbursed within 15 days after payment verification.'
+                  } 
+                });
+              }, 2000);
+            } else {
+              // Bank details already provided, navigate to home
+              setTimeout(() => {
+                navigate('/home', { state: { paymentSuccess: true, loanId: loan.id || loan._id } });
+              }, 2000);
+            }
+          } catch (userError) {
+            // If user fetch fails, just navigate to home
+            setTimeout(() => {
+              navigate('/home', { state: { paymentSuccess: true, loanId: loan.id || loan._id } });
+            }, 2000);
+          }
         }
       } catch (error) {
         console.error('Error checking payment status:', error);
@@ -369,6 +400,9 @@ const Payment = () => {
   const handleVerifyPayment = async () => {
     if (!loan) return;
 
+    // Dismiss any existing toasts to prevent duplicates
+    toast.dismiss();
+
     setProcessing(true);
     setVerifying(true);
     
@@ -389,7 +423,8 @@ const Payment = () => {
         paymentMethod: 'UPI'
       });
 
-      toast.success('✅ Payment submitted! Verifying...');
+      // Single notification for payment submission
+      toast.success('✅ Payment submitted! Verifying...', { autoClose: 3000 });
       
       // Start checking payment status
       const checkStatus = async () => {
@@ -402,11 +437,39 @@ const Payment = () => {
           if (updatedLoan.status === 'payment_validation' || updatedLoan.status === 'processing') {
             setPaymentVerified(true);
             setVerifying(false);
-            toast.success('✅ Payment verified successfully!');
+            // Dismiss previous toast and show success
+            toast.dismiss();
+            toast.success('✅ Payment verified successfully!', { autoClose: 3000 });
             
-            setTimeout(() => {
-              navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
-            }, 2000);
+            // Check if user has bank details, if not navigate to bank details page
+            try {
+              const userResponse = await axios.get('/auth/me');
+              const userData = userResponse.data.user;
+              
+              // Check if bank details are missing
+              if (!userData.bankAccountNumber || !userData.ifscCode) {
+                // Navigate to bank details page after 2 seconds
+                setTimeout(() => {
+                  navigate('/bank-details', { 
+                    state: { 
+                      paymentSuccess: true, 
+                      loanId: loanId,
+                      message: 'Please provide your bank details to receive the loan amount. Funds will be disbursed within 15 days after payment verification.'
+                    } 
+                  });
+                }, 2000);
+              } else {
+                // Bank details already provided, navigate to home
+                setTimeout(() => {
+                  navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
+                }, 2000);
+              }
+            } catch (userError) {
+              // If user fetch fails, just navigate to home
+              setTimeout(() => {
+                navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
+              }, 2000);
+            }
           }
         } catch (error) {
           console.error('Error checking status:', error);
@@ -424,23 +487,28 @@ const Payment = () => {
         clearInterval(interval);
         if (!paymentVerified) {
           setVerifying(false);
-          toast.info('Payment verification in progress. You will be notified once verified.');
+          // Only show info if payment not verified yet
+          toast.dismiss();
+          toast.info('Payment verification in progress. You will be notified once verified.', { autoClose: 4000 });
         }
       }, 30000);
 
     } catch (error) {
       setVerifying(false);
+      // Dismiss any existing toasts before showing error
+      toast.dismiss();
+      
       if (error.response?.status === 401) {
         toast.error('Session expired. Please login again.');
         navigate('/login');
       } else if (error.response?.status === 400) {
         const errorMsg = error.response?.data?.message || 'Payment submission failed';
-        toast.error(errorMsg);
+        toast.error(errorMsg, { autoClose: 4000 });
         if (errorMsg.includes('already paid') || errorMsg.includes('already processed')) {
           setTimeout(() => navigate('/home'), 2000);
         }
       } else {
-        toast.error(error.response?.data?.message || 'Payment submission failed. Please try again.');
+        toast.error(error.response?.data?.message || 'Payment submission failed. Please try again.', { autoClose: 4000 });
       }
     } finally {
       setProcessing(false);

@@ -42,7 +42,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB max file size
+    fileSize: 50 * 1024 * 1024 // 50MB max file size
   },
   fileFilter: fileFilter
 });
@@ -53,7 +53,7 @@ const handleMulterError = (err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
         success: false,
-        message: 'File size too large. Maximum size is 5MB.'
+        message: 'File size too large. Maximum size is 50MB.'
       });
     }
     return res.status(400).json({
