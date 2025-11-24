@@ -12,6 +12,7 @@ const BankDetails = () => {
   const location = useLocation();
   const { user, updateProfile, fetchUser } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [hasProcessingLoan, setHasProcessingLoan] = useState(false);
   const [formData, setFormData] = useState({
     bankAccountNumber: user?.bankAccountNumber || '',
     ifscCode: user?.ifscCode || '',
@@ -23,10 +24,26 @@ const BankDetails = () => {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
-        // If redirected from payment, allow access
+        // If redirected from payment, allow access and check if payment is processing
         if (location.state?.paymentSuccess) {
-          if (location.state?.message) {
-            toast.info(location.state.message, { autoClose: 5000 });
+          // Check if payment is actually processing/approved
+          const token = localStorage.getItem('token');
+          if (token) {
+            if (!axios.defaults.headers.common['Authorization']) {
+              axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            }
+            try {
+              const loansResponse = await axios.get('/loans');
+              const loans = loansResponse.data.loans || [];
+              const processingLoan = loans.find(loan => 
+                loan.status === 'processing' || 
+                loan.status === 'payment_validation' ||
+                (loan.depositPaid && loan.status !== 'rejected' && loan.status !== 'cancelled')
+              );
+              setHasProcessingLoan(!!processingLoan);
+            } catch (error) {
+              console.error('Error checking loan status:', error);
+            }
           }
           return;
         }
@@ -52,6 +69,14 @@ const BankDetails = () => {
           loan.status === 'payment_validation' ||
           loan.status === 'completed'
         );
+        
+        // Check if payment is processing/approved
+        const processingLoan = loans.find(loan => 
+          loan.status === 'processing' || 
+          loan.status === 'payment_validation' ||
+          (loan.depositPaid && loan.status !== 'rejected' && loan.status !== 'cancelled')
+        );
+        setHasProcessingLoan(!!processingLoan);
 
         // If no payment completed, redirect to home
         if (!hasPaymentCompleted && !user?.bankAccountNumber) {
@@ -122,15 +147,33 @@ const BankDetails = () => {
       });
 
       await fetchUser();
-      toast.success('Bank details saved successfully!');
+      toast.dismiss(); // Dismiss any existing toasts
+      toast.success('Bank details saved successfully!', { autoClose: 3000 });
       
-      // Show message about 15 days processing time
-      if (location.state?.paymentSuccess) {
-        toast.info('✅ Payment verified! Funds will be disbursed to your bank account within 15 days.');
+      // Check if payment is processing/approved before showing 15 days message
+      try {
+        const loansResponse = await axios.get('/loans');
+        const loans = loansResponse.data.loans || [];
+        const processingLoan = loans.find(loan => 
+          loan.status === 'processing' || 
+          loan.status === 'payment_validation' ||
+          (loan.depositPaid && loan.status !== 'rejected' && loan.status !== 'cancelled')
+        );
+        
+        // Only show 15 days message if payment is actually processing/approved
+        if (processingLoan) {
+          setTimeout(() => {
+            toast.info('✅ Payment verified! Funds will be disbursed to your bank account within 15 days.', { autoClose: 5000 });
+          }, 3500);
+        }
+      } catch (error) {
+        console.error('Error checking loan status:', error);
       }
       
       // Navigate back to home
-      navigate('/home', { state: { bankDetailsSaved: true } });
+      setTimeout(() => {
+        navigate('/home', { state: { bankDetailsSaved: true } });
+      }, 2000);
     } catch (error) {
       console.error('Error saving bank details:', error);
       toast.error(error.response?.data?.message || 'Failed to save bank details');
@@ -175,7 +218,8 @@ const BankDetails = () => {
                 To complete your loan application and enable disbursement, please provide your bank account details. 
                 This information is required for loan processing and fund transfer.
               </p>
-              {location.state?.paymentSuccess && (
+              {/* Show 15 days message only if payment is actually processing/approved */}
+              {hasProcessingLoan && (
                 <p className="text-sm font-semibold text-[#14b8a6] mt-2">
                   ✅ Payment verified! Funds will be disbursed to your bank account within 15 days after verification.
                 </p>

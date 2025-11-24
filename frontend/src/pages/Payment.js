@@ -330,6 +330,11 @@ const Payment = () => {
   const handleVerifyPayment = async () => {
     if (!loan) return;
 
+    // Prevent multiple clicks if already verifying or verified
+    if (verifying || paymentVerified) {
+      return;
+    }
+
     // Dismiss any existing toasts to prevent duplicates
     toast.dismiss();
 
@@ -357,48 +362,58 @@ const Payment = () => {
       toast.success('✅ Payment submitted! Verifying...', { autoClose: 3000 });
       
       // Start checking payment status
+      let notificationShown = false; // Flag to prevent duplicate notifications
       const checkStatus = async () => {
         try {
+          // Don't check if already verified
+          if (paymentVerified) {
+            return;
+          }
+
           const statusResponse = await axios.get(`/loans/${loanId}/status`, {
             skipErrorToast: true
           });
           const updatedLoan = statusResponse.data.loan;
 
           if (updatedLoan.status === 'payment_validation' || updatedLoan.status === 'processing') {
-            setPaymentVerified(true);
-            setVerifying(false);
-            // Dismiss previous toast and show success
-            toast.dismiss();
-            toast.success('✅ Payment verified successfully!', { autoClose: 3000 });
-            
-            // Check if user has bank details, if not navigate to bank details page
-            try {
-              const userResponse = await axios.get('/auth/me');
-              const userData = userResponse.data.user;
+            // Only show notification once
+            if (!notificationShown) {
+              notificationShown = true;
+              setPaymentVerified(true);
+              setVerifying(false);
+              // Dismiss previous toast and show success - only once
+              toast.dismiss();
+              toast.success('✅ Payment verified successfully!', { autoClose: 3000 });
               
-              // Check if bank details are missing
-              if (!userData.bankAccountNumber || !userData.ifscCode) {
-                // Navigate to bank details page after 2 seconds
-                setTimeout(() => {
-                  navigate('/bank-details', { 
-                    state: { 
-                      paymentSuccess: true, 
-                      loanId: loanId,
-                      message: 'Please provide your bank details to receive the loan amount. Funds will be disbursed within 15 days after payment verification.'
-                    } 
-                  });
-                }, 2000);
-              } else {
-                // Bank details already provided, navigate to home
+              // Check if user has bank details, if not navigate to bank details page
+              try {
+                const userResponse = await axios.get('/auth/me');
+                const userData = userResponse.data.user;
+                
+                // Check if bank details are missing
+                if (!userData.bankAccountNumber || !userData.ifscCode) {
+                  // Navigate to bank details page after 3 seconds (after success notification)
+                  setTimeout(() => {
+                    navigate('/bank-details', { 
+                      state: { 
+                        paymentSuccess: true, 
+                        loanId: loanId
+                        // Remove message from here - will show in bank details page only if payment is processing
+                      } 
+                    });
+                  }, 3000);
+                } else {
+                  // Bank details already provided, navigate to home
+                  setTimeout(() => {
+                    navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
+                  }, 3000);
+                }
+              } catch (userError) {
+                // If user fetch fails, just navigate to home
                 setTimeout(() => {
                   navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
-                }, 2000);
+                }, 3000);
               }
-            } catch (userError) {
-              // If user fetch fails, just navigate to home
-              setTimeout(() => {
-                navigate('/home', { state: { paymentSuccess: true, loanId: loanId } });
-              }, 2000);
             }
           }
         } catch (error) {
