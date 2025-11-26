@@ -14,11 +14,10 @@ export const useAuth = () => {
   return context;
 };
 
-// Use relative path for production (nginx proxy) or full URL for development
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? '/api'  // Relative path - nginx will proxy to backend
-  : 'http://217.15.166.124:5000/api';  // Direct URL for development
-  // : 'http://localhost:5000/api';  // Direct URL for development
+// Use relative path - works with nginx proxy in both dev and production
+// If backend is on same domain, nginx will proxy /api to backend
+// For local development, use proxy in package.json or set REACT_APP_API_URL
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 axios.defaults.baseURL = API_URL;
 
@@ -95,9 +94,16 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.get('/auth/me');
       setUser(response.data.user);
     } catch (error) {
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
-      setUser(null);
+      // Don't clear token on network errors - might be temporary
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        console.warn('Backend server not reachable. Please ensure backend is running.');
+        // Keep user data if available, just don't update
+      } else {
+        // Only clear on auth errors
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common['Authorization'];
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -133,6 +139,7 @@ export const AuthProvider = ({ children }) => {
       console.log('=== FRONTEND: loginWithPhoneDirect START ===');
       console.log('Phone number:', phoneNumber);
       console.log('Name provided:', name || 'Not provided');
+      console.log('API URL:', axios.defaults.baseURL);
       
       const requestData = { 
         phoneNumber,
@@ -142,7 +149,9 @@ export const AuthProvider = ({ children }) => {
       console.log('Request data keys:', Object.keys(requestData));
       
       console.log('Sending request to /auth/login-direct...');
-      const response = await axios.post('/auth/login-direct', requestData);
+      const response = await axios.post('/auth/login-direct', requestData, {
+        timeout: 10000 // 10 second timeout
+      });
       console.log('Response received:', {
         hasToken: !!response.data.token,
         hasUser: !!response.data.user,
@@ -201,8 +210,22 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('=== FRONTEND: loginWithPhoneDirect ERROR ===');
       console.error('Error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
       console.error('Error response:', error.response?.data);
       console.error('=== FRONTEND: loginWithPhoneDirect ERROR END ===');
+      
+      // Handle network errors
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNREFUSED') {
+        const errorMessage = 'Cannot connect to server. Please ensure backend server is running on port 5000.';
+        console.error(errorMessage);
+        toast.error('Backend server not reachable. Please start the backend server.');
+        return {
+          success: false,
+          message: errorMessage,
+          networkError: true
+        };
+      }
       
       if (error.response?.data?.requiresName) {
         return {

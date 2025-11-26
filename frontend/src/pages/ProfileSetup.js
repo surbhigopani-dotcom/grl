@@ -600,7 +600,7 @@ const ProfileSetup = () => {
                         {documents.aadharCard && (documents.aadharCard.startsWith('http') || documents.aadharCard.startsWith('/')) ? (
                           <img 
                             src={documents.aadharCard.startsWith('/') 
-                              ? `${process.env.NODE_ENV === 'production' ? window.location.origin : 'http://217.15.166.124:5000'}${documents.aadharCard}` 
+                              ? `${window.location.origin}${documents.aadharCard}` 
                               : documents.aadharCard} 
                             alt="Aadhar Card" 
                             className="w-12 h-12 object-cover rounded"
@@ -661,7 +661,7 @@ const ProfileSetup = () => {
                         {documents.panCard && (documents.panCard.startsWith('http') || documents.panCard.startsWith('/')) ? (
                           <img 
                             src={documents.panCard.startsWith('/') 
-                              ? `${process.env.NODE_ENV === 'production' ? window.location.origin : 'http://217.15.166.124:5000'}${documents.panCard}` 
+                              ? `${window.location.origin}${documents.panCard}` 
                               : documents.panCard} 
                             alt="PAN Card" 
                             className="w-12 h-12 object-cover rounded"
@@ -722,7 +722,7 @@ const ProfileSetup = () => {
                         {documents.selfie && (documents.selfie.startsWith('http') || documents.selfie.startsWith('/')) ? (
                           <img 
                             src={documents.selfie.startsWith('/') 
-                              ? `${process.env.NODE_ENV === 'production' ? window.location.origin : 'http://217.15.166.124:5000'}${documents.selfie}` 
+                              ? `${window.location.origin}${documents.selfie}` 
                               : documents.selfie} 
                             alt="Selfie" 
                             className="w-12 h-12 object-cover rounded"
