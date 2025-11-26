@@ -122,11 +122,11 @@ const sendLoanApprovalEmail = async (user, loan) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Loan approval email sent to ${user.email}: ${info.messageId}`);
+    console.log(`✅ Loan approval email sent to ${user.email}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending loan approval email:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Error sending loan approval email:', error.message || error);
+    return { success: false, error: error.message || 'Unknown error' };
   }
 };
 
@@ -476,11 +476,11 @@ const sendPaymentApprovalEmail = async (user, loan) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Payment approval email sent to ${user.email}: ${info.messageId}`);
+    console.log(`✅ Payment approval email sent to ${user.email}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending payment approval email:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Error sending payment approval email:', error.message || error);
+    return { success: false, error: error.message || 'Unknown error' };
   }
 };
 

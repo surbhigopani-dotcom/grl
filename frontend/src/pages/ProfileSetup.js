@@ -23,9 +23,7 @@ const ProfileSetup = () => {
   });
   const aadharInputRef = useRef(null);
   const panInputRef = useRef(null);
-  const selfieInputRef = useRef(null);
   const selfieCameraRef = useRef(null);
-  const selfieGalleryRef = useRef(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -232,10 +230,8 @@ const ProfileSetup = () => {
         if (!file.type.startsWith('image/')) {
           toast.error('Selfie must be an image file (JPG, PNG, etc.)');
           // Reset the input
-          if (e.target === selfieCameraRef.current) {
+          if (selfieCameraRef.current) {
             selfieCameraRef.current.value = '';
-          } else if (e.target === selfieGalleryRef.current) {
-            selfieGalleryRef.current.value = '';
           }
           return;
         }
@@ -254,9 +250,7 @@ const ProfileSetup = () => {
     } else if (documentType === 'panCard' && panInputRef.current) {
       panInputRef.current.value = '';
     } else if (documentType === 'selfie') {
-      if (selfieInputRef.current) selfieInputRef.current.value = '';
       if (selfieCameraRef.current) selfieCameraRef.current.value = '';
-      if (selfieGalleryRef.current) selfieGalleryRef.current.value = '';
     }
   };
 
@@ -791,61 +785,28 @@ const ProfileSetup = () => {
                         id="selfie-camera"
                       />
                       
-                      {/* Gallery Option - Only images for selfie */}
-                      <input
-                        ref={selfieGalleryRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'selfie')}
-                        className="hidden"
-                        id="selfie-gallery"
-                      />
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Camera Button */}
-                        <label
-                          htmlFor="selfie-camera"
-                          className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-xl cursor-pointer hover:bg-[#14b8a6]/10 transition-all hover:border-[#14b8a6] active:scale-95"
-                        >
-                          {uploading.selfie ? (
-                            <div className="text-center">
-                              <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                              <span className="text-sm text-[#14b8a6]">Uploading...</span>
+                      {/* Camera Button - Full Width */}
+                      <label
+                        htmlFor="selfie-camera"
+                        className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#14b8a6] rounded-xl cursor-pointer hover:bg-[#14b8a6]/10 transition-all hover:border-[#14b8a6] active:scale-95 bg-white"
+                      >
+                        {uploading.selfie ? (
+                          <div className="text-center">
+                            <div className="w-10 h-10 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                            <span className="text-sm font-semibold text-[#14b8a6]">Uploading Selfie...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="w-16 h-16 bg-[#14b8a6]/10 rounded-full flex items-center justify-center mb-3">
+                              <Upload className="w-8 h-8 text-[#14b8a6]" />
                             </div>
-                          ) : (
-                            <>
-                              <div className="w-12 h-12 bg-[#14b8a6]/10 rounded-full flex items-center justify-center mb-2">
-                                <Upload className="w-6 h-6 text-[#14b8a6]" />
-                              </div>
-                              <span className="text-sm font-semibold text-[#14b8a6] text-center">📷 Take Photo</span>
-                              <span className="text-xs text-gray-500 mt-1">Open Camera</span>
-                            </>
-                          )}
-                        </label>
-                        
-                        {/* Gallery Button */}
-                        <label
-                          htmlFor="selfie-gallery"
-                          className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-xl cursor-pointer hover:bg-[#14b8a6]/10 transition-all hover:border-[#14b8a6] active:scale-95"
-                        >
-                          {uploading.selfie ? (
-                            <div className="text-center">
-                              <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                              <span className="text-sm text-[#14b8a6]">Uploading...</span>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="w-12 h-12 bg-[#14b8a6]/10 rounded-full flex items-center justify-center mb-2">
-                                <FileImage className="w-6 h-6 text-[#14b8a6]" />
-                              </div>
-                              <span className="text-sm font-semibold text-[#14b8a6] text-center">🖼️ Choose from Gallery</span>
-                              <span className="text-xs text-gray-500 mt-1">Select Image</span>
-                            </>
-                          )}
-                        </label>
-                      </div>
+                            <span className="text-lg font-bold text-[#14b8a6] text-center mb-1">📷 Take Selfie</span>
+                            <span className="text-sm text-gray-600 text-center">Click to open camera and capture your selfie</span>
+                          </>
+                        )}
+                      </label>
                       <p className="text-xs text-center text-gray-500 mt-2">
-                        Selfie must be an image file (JPG, PNG, WebP, GIF, BMP)
+                        Selfie must be taken from camera (JPG, PNG, WebP, GIF, BMP)
                       </p>
                     </div>
                   )}

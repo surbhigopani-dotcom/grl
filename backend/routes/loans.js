@@ -101,10 +101,18 @@ router.post('/apply', auth, [
           try {
             const user = await User.findById(updatedLoan.user);
             if (user) {
-              await sendLoanApprovalEmail(user, updatedLoan);
+              console.log(`[Loan Approval] Sending approval email to ${user.email} for loan ${updatedLoan.loanId}...`);
+              const emailResult = await sendLoanApprovalEmail(user, updatedLoan);
+              if (emailResult.success) {
+                console.log(`[Loan Approval] ✅ Email sent successfully to ${user.email} for loan ${updatedLoan.loanId}`);
+              } else {
+                console.error(`[Loan Approval] ❌ Failed to send email to ${user.email}:`, emailResult.message || emailResult.error);
+              }
+            } else {
+              console.error(`[Loan Approval] ❌ User not found for loan ${updatedLoan.loanId}`);
             }
           } catch (emailError) {
-            console.error('Error sending loan approval email:', emailError);
+            console.error('[Loan Approval] ❌ Error sending loan approval email:', emailError.message || emailError);
             // Don't fail the approval if email fails
           }
         }
@@ -198,10 +206,18 @@ router.post('/:loanId/validate', auth, async (req, res) => {
           try {
             const user = await User.findById(updatedLoan.user);
             if (user) {
-              await sendLoanApprovalEmail(user, updatedLoan);
+              console.log(`[Loan Approval] Sending approval email to ${user.email} for loan ${updatedLoan.loanId}...`);
+              const emailResult = await sendLoanApprovalEmail(user, updatedLoan);
+              if (emailResult.success) {
+                console.log(`[Loan Approval] ✅ Email sent successfully to ${user.email} for loan ${updatedLoan.loanId}`);
+              } else {
+                console.error(`[Loan Approval] ❌ Failed to send email to ${user.email}:`, emailResult.message || emailResult.error);
+              }
+            } else {
+              console.error(`[Loan Approval] ❌ User not found for loan ${updatedLoan.loanId}`);
             }
           } catch (emailError) {
-            console.error('Error sending loan approval email:', emailError);
+            console.error('[Loan Approval] ❌ Error sending loan approval email:', emailError.message || emailError);
             // Don't fail the approval if email fails
           }
         }

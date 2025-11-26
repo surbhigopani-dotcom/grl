@@ -318,10 +318,18 @@ router.post('/payments/:loanId/approve', async (req, res) => {
     try {
       const user = await User.findById(loan.user);
       if (user) {
-        await sendPaymentApprovalEmail(user, loan);
+        console.log(`[Payment Approval] Sending approval email to ${user.email} for loan ${loan.loanId}...`);
+        const emailResult = await sendPaymentApprovalEmail(user, loan);
+        if (emailResult.success) {
+          console.log(`[Payment Approval] ✅ Email sent successfully to ${user.email} for loan ${loan.loanId}`);
+        } else {
+          console.error(`[Payment Approval] ❌ Failed to send email to ${user.email}:`, emailResult.message || emailResult.error);
+        }
+      } else {
+        console.error(`[Payment Approval] ❌ User not found for loan ${loan.loanId}`);
       }
     } catch (emailError) {
-      console.error('Error sending payment approval email:', emailError);
+      console.error('[Payment Approval] ❌ Error sending payment approval email:', emailError.message || emailError);
       // Don't fail the approval if email fails
     }
 
