@@ -192,6 +192,12 @@ const Home = () => {
   }, []);
 
   const handleLoanTypeClick = (loanType) => {
+    // Don't redirect if we just completed the profile
+    if (location.state?.profileCompleted) {
+      toast.info('Please wait, your profile is being processed...');
+      return;
+    }
+    
     // Navigate to profile setup if profile incomplete, otherwise show validation flow
     const isProfileComplete = !!( 
       user?.name &&

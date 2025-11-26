@@ -3,6 +3,8 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const AdminConfig = require('../models/AdminConfig');
 const Loan = require('../models/Loan');
+const User = require('../models/User');
+const { sendPaymentApprovalEmail, sendPaymentFailureEmail } = require('../utils/emailService');
 
 // @route   GET /api/admin/config
 // @desc    Get admin configuration
@@ -183,6 +185,17 @@ router.post('/payments/:loanId/approve', async (req, res) => {
 
     await loan.save();
 
+    // Send payment approval email
+    try {
+      const user = await User.findById(loan.user);
+      if (user) {
+        await sendPaymentApprovalEmail(user, loan);
+      }
+    } catch (emailError) {
+      console.error('Error sending payment approval email:', emailError);
+      // Don't fail the approval if email fails
+    }
+
     res.json({
       message: 'Payment approved successfully',
       loan
@@ -221,6 +234,17 @@ router.post('/payments/:loanId/reject', [
     loan.remarks = req.body.reason || 'Payment verification failed';
 
     await loan.save();
+
+    // Send payment failure email immediately when admin rejects
+    try {
+      const user = await User.findById(loan.user);
+      if (user) {
+        await sendPaymentFailureEmail(user, loan);
+      }
+    } catch (emailError) {
+      console.error('Error sending payment failure email:', emailError);
+      // Don't fail the rejection if email fails
+    }
 
     res.json({
       message: 'Payment rejected. User can retry payment.',

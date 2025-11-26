@@ -498,7 +498,8 @@ router.put('/profile', auth, [
     // Update allowed fields
     const allowedFields = ['name', 'email', 'dateOfBirth', 'address', 'city', 'state', 'pincode',
                           'employmentType', 'companyName', 'aadharNumber', 'panNumber', 
-                          'bankAccountNumber', 'ifscCode', 'additionalDetails'];
+                          'bankAccountNumber', 'ifscCode', 'additionalDetails',
+                          'aadharCardUrl', 'panCardUrl', 'selfieUrl'];
     
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {
@@ -516,6 +517,9 @@ router.put('/profile', auth, [
           } else {
             user[field] = req.body[field];
           }
+        } else if (field === 'aadharCardUrl' || field === 'panCardUrl' || field === 'selfieUrl') {
+          // Handle document URLs - allow empty string or null
+          user[field] = req.body[field] || '';
         } else {
           // For other string fields
           user[field] = req.body[field] || '';

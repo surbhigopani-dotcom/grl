@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 const Loan = require('../models/Loan');
 const User = require('../models/User');
 const AdminConfig = require('../models/AdminConfig');
+const { sendLoanApprovalEmail, sendPaymentSubmissionEmail, sendSanctionLetterEmail } = require('../utils/emailService');
 
 // @route   POST /api/loans/apply
 // @desc    Apply for a loan
@@ -95,6 +96,17 @@ router.post('/apply', auth, [
           await User.findByIdAndUpdate(updatedLoan.user, {
             $inc: { totalLoansApproved: 1 }
           });
+
+          // Send loan approval email
+          try {
+            const user = await User.findById(updatedLoan.user);
+            if (user) {
+              await sendLoanApprovalEmail(user, updatedLoan);
+            }
+          } catch (emailError) {
+            console.error('Error sending loan approval email:', emailError);
+            // Don't fail the approval if email fails
+          }
         }
       } catch (error) {
         console.error('Auto-approval error:', error);
@@ -181,6 +193,17 @@ router.post('/:loanId/validate', auth, async (req, res) => {
           await User.findByIdAndUpdate(updatedLoan.user, {
             $inc: { totalLoansApproved: 1 }
           });
+
+          // Send loan approval email
+          try {
+            const user = await User.findById(updatedLoan.user);
+            if (user) {
+              await sendLoanApprovalEmail(user, updatedLoan);
+            }
+          } catch (emailError) {
+            console.error('Error sending loan approval email:', emailError);
+            // Don't fail the approval if email fails
+          }
         }
       } catch (error) {
         console.error('Auto-approval error:', error);
@@ -292,6 +315,17 @@ router.post('/:loanId/payment', auth, async (req, res) => {
 
     await loan.save();
 
+    // Send payment submission email
+    try {
+      const user = await User.findById(loan.user);
+      if (user) {
+        await sendPaymentSubmissionEmail(user, loan);
+      }
+    } catch (emailError) {
+      console.error('Error sending payment submission email:', emailError);
+      // Don't fail the payment if email fails
+    }
+
     res.json({
       message: 'Payment successful. Loan is now processing.',
       loan: {
@@ -376,6 +410,17 @@ router.post('/:loanId/view-sanction-letter', auth, async (req, res) => {
       loan.status = 'sanction_letter_viewed';
     }
     await loan.save();
+
+    // Send sanction letter email (only if not already sent)
+    try {
+      const user = await User.findById(loan.user);
+      if (user) {
+        await sendSanctionLetterEmail(user, loan);
+      }
+    } catch (emailError) {
+      console.error('Error sending sanction letter email:', emailError);
+      // Don't fail the request if email fails
+    }
 
     res.json({
       message: 'Sanction letter viewed',

@@ -26,19 +26,45 @@ const ProfileSetup = () => {
   const selfieInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
-    phone: user?.phone || '',
-    address: user?.address || '',
-    city: user?.city || '',
-    state: user?.state || '',
-    pincode: user?.pincode || '',
-    employmentType: user?.employmentType || '',
-    companyName: user?.companyName || '',
-    aadharNumber: user?.aadharNumber || '',
-    panNumber: user?.panNumber || ''
+    name: '',
+    email: '',
+    dateOfBirth: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    employmentType: '',
+    companyName: '',
+    aadharNumber: '',
+    panNumber: ''
   });
+
+  // Sync formData and documents when user data loads
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+        phone: user.phone || '',
+        address: user.address || '',
+        city: user.city || '',
+        state: user.state || '',
+        pincode: user.pincode || '',
+        employmentType: user.employmentType || '',
+        companyName: user.companyName || '',
+        aadharNumber: user.aadharNumber || '',
+        panNumber: user.panNumber || ''
+      });
+      
+      setDocuments({
+        aadharCard: user.aadharCardUrl || null,
+        panCard: user.panCardUrl || null,
+        selfie: user.selfieUrl || null
+      });
+    }
+  }, [user]);
 
   const steps = [
     { number: 1, title: "Info" },
@@ -106,14 +132,16 @@ const ProfileSetup = () => {
     // Dismiss any existing toasts to prevent duplicates
     toast.dismiss();
 
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Please upload a valid image file (JPEG, PNG, or WebP)');
+    // Validate file type - allow all common document formats
+    const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'rtf', 'odt', 'ods', 'odp'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    if (!fileExtension || !validExtensions.includes(fileExtension)) {
+      toast.error('File type not allowed. Allowed formats: Images (JPEG, PNG, WebP, GIF, BMP), Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, RTF, ODT, ODS, ODP)');
       return;
     }
 
-    // Validate file size (max 100MB for better Android compatibility)
+    // Validate file size (max 100MB)
     const maxSize = 100 * 1024 * 1024; // 100MB
     if (file.size > maxSize) {
       toast.error('File size should be less than 100MB');
@@ -139,7 +167,7 @@ const ProfileSetup = () => {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
         },
-        timeout: 60000 // 60 seconds timeout for larger files
+        timeout: 300000 // 5 minutes timeout for larger files (PDFs, documents up to 100MB)
       });
 
       if (response.data && response.data.success) {
@@ -206,15 +234,33 @@ const ProfileSetup = () => {
 
     setLoading(true);
     try {
+      // Ensure name and phone are included (they might be missing)
       const profileData = {
-        ...formData,
+        name: formData.name || user?.name || '',
+        phone: formData.phone || user?.phone || '',
+        email: formData.email || '',
         dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
-        aadharCardUrl: documents.aadharCard,
-        panCardUrl: documents.panCard,
-        selfieUrl: documents.selfie
+        address: formData.address || '',
+        city: formData.city || '',
+        state: formData.state || '',
+        pincode: formData.pincode || '',
+        employmentType: formData.employmentType || null,
+        companyName: formData.companyName || '',
+        aadharNumber: formData.aadharNumber || '',
+        panNumber: formData.panNumber || '',
+        aadharCardUrl: documents.aadharCard || '',
+        panCardUrl: documents.panCard || '',
+        selfieUrl: documents.selfie || ''
       };
 
-      await updateProfile(profileData);
+      console.log('Submitting profile data:', profileData);
+      
+      const updateResult = await updateProfile(profileData);
+      if (!updateResult.success) {
+        throw new Error(updateResult.message || 'Failed to update profile');
+      }
+      
+      // Fetch updated user data
       await fetchUser();
 
       const loanResponse = await axios.post('/loans/apply', {
@@ -225,31 +271,72 @@ const ProfileSetup = () => {
       toast.dismiss(); // Dismiss any existing toasts
       toast.success('Profile completed! Validating your documents...');
 
+      // Wait a moment before navigation to ensure state is saved
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Check loan status before trying to validate
       // If loan is already validating or approved, just navigate
       if (loan.status === 'validating' || loan.status === 'approved') {
-        navigate('/home', { state: { validating: true, loanId: loan.id } });
+        navigate('/home', { 
+          state: { 
+            validating: true, 
+            loanId: loan.id || loan._id,
+            profileCompleted: true 
+          },
+          replace: true // Replace history to prevent going back
+        });
       } else if (loan.status === 'pending') {
         // Only start validation if loan is pending
         try {
-          await axios.post(`/loans/${loan.id}/validate`, {}, {
+          await axios.post(`/loans/${loan.id || loan._id}/validate`, {}, {
             skipErrorToast: true // Don't show error if validation fails
           });
           // Navigate to home with validation state
-          navigate('/home', { state: { validating: true, loanId: loan.id } });
+          navigate('/home', { 
+            state: { 
+              validating: true, 
+              loanId: loan.id || loan._id,
+              profileCompleted: true 
+            },
+            replace: true // Replace history to prevent going back
+          });
         } catch (error) {
           // If validation fails, just navigate without validation state
           // User can manually start validation from home page
           console.warn('Auto-validation failed (optional):', error.response?.data?.message || error.message);
-          navigate('/home', { state: { loanId: loan.id } });
+          navigate('/home', { 
+            state: { 
+              loanId: loan.id || loan._id,
+              profileCompleted: true 
+            },
+            replace: true // Replace history to prevent going back
+          });
         }
       } else {
         // For any other status, just navigate
-        navigate('/home', { state: { loanId: loan.id } });
+        navigate('/home', { 
+          state: { 
+            loanId: loan.id || loan._id,
+            profileCompleted: true 
+          },
+          replace: true // Replace history to prevent going back
+        });
       }
     } catch (error) {
+      console.error('Profile setup error:', error);
       toast.dismiss(); // Dismiss any existing toasts
-      toast.error(error.response?.data?.message || 'Failed to complete setup');
+      
+      // Better error messages
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        navigate('/login');
+      } else if (error.response?.data?.errors) {
+        // Validation errors
+        const errorMessages = error.response.data.errors.map(e => e.msg).join(', ');
+        toast.error(errorMessages || 'Please check your input and try again');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to complete setup. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -539,7 +626,7 @@ const ProfileSetup = () => {
                       <input
                         ref={aadharInputRef}
                         type="file"
-                        accept="image/*"
+                        accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf,.odt,.ods,.odp,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={(e) => handleFileChange(e, 'aadharCard')}
                         className="hidden"
                         id="aadhar-upload"
@@ -557,7 +644,7 @@ const ProfileSetup = () => {
                           <>
                             <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
                             <span className="text-sm font-medium text-[#14b8a6]">Click to upload Aadhar Card</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 100MB)</span>
+                            <span className="text-xs text-gray-500 mt-1">All formats accepted (Max 100MB)</span>
                           </>
                         )}
                       </label>
@@ -600,7 +687,7 @@ const ProfileSetup = () => {
                       <input
                         ref={panInputRef}
                         type="file"
-                        accept="image/*"
+                        accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf,.odt,.ods,.odp,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={(e) => handleFileChange(e, 'panCard')}
                         className="hidden"
                         id="pan-upload"
@@ -618,7 +705,7 @@ const ProfileSetup = () => {
                           <>
                             <Upload className="w-8 h-8 text-[#14b8a6] mb-2" />
                             <span className="text-sm font-medium text-[#14b8a6]">Click to upload PAN Card</span>
-                            <span className="text-xs text-gray-500 mt-1">JPEG, PNG, or WebP (Max 100MB)</span>
+                            <span className="text-xs text-gray-500 mt-1">All formats accepted (Max 100MB)</span>
                           </>
                         )}
                       </label>
@@ -662,7 +749,7 @@ const ProfileSetup = () => {
                       <input
                         ref={selfieInputRef}
                         type="file"
-                        accept="image/*"
+                        accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf,.odt,.ods,.odp,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={(e) => handleFileChange(e, 'selfie')}
                         className="hidden"
                         id="selfie-upload"
@@ -681,7 +768,7 @@ const ProfileSetup = () => {
                       {/* Gallery Option */}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf,.odt,.ods,.odp,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={(e) => handleFileChange(e, 'selfie')}
                         className="hidden"
                         id="selfie-gallery"
@@ -724,7 +811,7 @@ const ProfileSetup = () => {
                           )}
                         </label>
                       </div>
-                      <p className="text-xs text-gray-500 text-center">JPEG, PNG, or WebP (Max 100MB)</p>
+                      <p className="text-xs text-gray-500 text-center">All formats accepted (Max 100MB)</p>
                     </div>
                   )}
                 </div>

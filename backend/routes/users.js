@@ -26,16 +26,35 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter - only allow images
+// File filter - allow all common document formats
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  // Allowed file extensions
+  const allowedExtensions = /jpeg|jpg|png|webp|pdf|doc|docx|xls|xlsx|txt|csv|rtf|odt|ods|odp/;
+  // Allowed MIME types
+  const allowedMimeTypes = [
+    // Images
+    'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp',
+    // Documents
+    'application/pdf',
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'text/plain', // .txt
+    'text/csv', // .csv
+    'application/rtf', // .rtf
+    'application/vnd.oasis.opendocument.text', // .odt
+    'application/vnd.oasis.opendocument.spreadsheet', // .ods
+    'application/vnd.oasis.opendocument.presentation' // .odp
+  ];
+  
+  const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedMimeTypes.includes(file.mimetype) || allowedExtensions.test(path.extname(file.originalname).toLowerCase());
 
-  if (mimetype && extname) {
+  if (mimetype || extname) {
     return cb(null, true);
   } else {
-    cb(new Error('Only image files (JPEG, PNG, WebP) are allowed!'));
+    cb(new Error('File type not allowed. Allowed formats: Images (JPEG, PNG, WebP, GIF, BMP), Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, RTF, ODT, ODS, ODP)'));
   }
 };
 

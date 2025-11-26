@@ -74,7 +74,13 @@ mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('MongoDB Connected Successfully'))
+.then(() => {
+  console.log('MongoDB Connected Successfully');
+  
+  // Start payment failure cron job after MongoDB connection
+  const { startPaymentFailureCron } = require('./utils/paymentFailureCron');
+  startPaymentFailureCron();
+})
 .catch(err => console.error('MongoDB connection error:', err));
 
 const PORT = process.env.PORT || 5000;
