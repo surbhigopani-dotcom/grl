@@ -124,15 +124,24 @@ const SanctionLetter = () => {
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+      ctx.fillStyle = '#14b8a6';
 
       // Add touch event listeners with passive: false to prevent default
       const handleTouchStart = (e) => {
         e.preventDefault();
         const touch = e.touches[0];
         const rect = canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
         ctx.beginPath();
-        ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+        ctx.moveTo(x, y);
+        // Draw a dot on touch start to ensure signature is captured even on single touch
+        ctx.arc(x, y, 2, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
         setIsDrawing(true);
+        setSignature(canvas.toDataURL());
       };
 
       const handleTouchMove = (e) => {
@@ -148,7 +157,10 @@ const SanctionLetter = () => {
       const handleTouchEnd = (e) => {
         e.preventDefault();
         setIsDrawing(false);
-        setSignature(canvas.toDataURL());
+        const currentSignature = canvas.toDataURL();
+        if (currentSignature) {
+          setSignature(currentSignature);
+        }
       };
 
       canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -164,15 +176,23 @@ const SanctionLetter = () => {
   }, [showSignature, isDrawing]);
 
   const startDrawing = (e) => {
+    e.preventDefault();
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX ? e.clientX - rect.left : e.touches[0].clientX - rect.left;
-    const y = e.clientY ? e.clientY - rect.top : e.touches[0].clientY - rect.top;
+    const x = e.clientX ? e.clientX - rect.left : (e.touches && e.touches[0] ? e.touches[0].clientX - rect.left : 0);
+    const y = e.clientY ? e.clientY - rect.top : (e.touches && e.touches[0] ? e.touches[0].clientY - rect.top : 0);
     ctx.beginPath();
     ctx.moveTo(x, y);
+    // Draw a small dot on click/touch start to ensure signature is captured even on single click
+    ctx.arc(x, y, 2, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    // Update signature immediately on start
+    setSignature(canvas.toDataURL());
   };
 
   const draw = (e) => {
@@ -189,11 +209,16 @@ const SanctionLetter = () => {
     setSignature(canvas.toDataURL());
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e) => {
+    e?.preventDefault();
     setIsDrawing(false);
     const canvas = canvasRef.current;
     if (canvas) {
-      setSignature(canvas.toDataURL());
+      // Ensure signature is captured even if user just clicked without dragging
+      const currentSignature = canvas.toDataURL();
+      if (currentSignature && currentSignature !== 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==') {
+        setSignature(currentSignature);
+      }
     }
   };
 
@@ -303,6 +328,20 @@ const SanctionLetter = () => {
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
                   onMouseLeave={stopDrawing}
+                  onClick={(e) => {
+                    // Handle single click - draw a dot
+                    const canvas = canvasRef.current;
+                    if (canvas) {
+                      const ctx = canvas.getContext('2d');
+                      const rect = canvas.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const y = e.clientY - rect.top;
+                      ctx.beginPath();
+                      ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                      ctx.fill();
+                      setSignature(canvas.toDataURL());
+                    }
+                  }}
                   style={{ touchAction: 'none' }}
                 />
               </div>

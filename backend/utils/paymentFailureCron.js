@@ -12,9 +12,12 @@ const checkAndSendPaymentFailureEmails = async () => {
     console.log('[Cron] Checking for payment_failed loans...');
     
     // Find all loans with payment_failed status
+    // Check both status and paymentStatus fields
     const failedLoans = await Loan.find({ 
-      status: 'payment_failed',
-      paymentStatus: 'failed'
+      $or: [
+        { status: 'payment_failed' },
+        { paymentStatus: 'failed' }
+      ]
     }).populate('user', 'name email phone');
 
     if (failedLoans.length === 0) {
@@ -32,6 +35,8 @@ const checkAndSendPaymentFailureEmails = async () => {
         // Create unique key for this loan to track if we've sent email
         const loanKey = `${loan._id}_${loan.updatedAt?.getTime() || 0}`;
         
+        console.log(`[Cron] Processing loan ${loan.loanId || loan._id}, status: ${loan.status}, paymentStatus: ${loan.paymentStatus}`);
+        
         // Check if we've already sent email for this loan (within last 24 hours)
         // We'll send email again if loan was updated (new failure)
         if (sentEmailTracker.has(loanKey)) {
@@ -46,19 +51,27 @@ const checkAndSendPaymentFailureEmails = async () => {
           continue;
         }
 
+        if (!loan.user.email || loan.user.email.trim() === '') {
+          console.log(`[Cron] User ${loan.user.name || loan.user._id} has no email address, skipping...`);
+          emailsSkipped++;
+          continue;
+        }
+
+        console.log(`[Cron] Attempting to send payment failure email to ${loan.user.email} for loan ${loan.loanId}...`);
+        
         // Send email
         const result = await sendPaymentFailureEmail(loan.user, loan);
         
         if (result.success) {
           sentEmailTracker.add(loanKey);
           emailsSent++;
-          console.log(`[Cron] Payment failure email sent to ${loan.user.email} for loan ${loan.loanId}`);
+          console.log(`[Cron] ✅ Payment failure email sent successfully to ${loan.user.email} for loan ${loan.loanId}`);
         } else {
-          console.error(`[Cron] Failed to send email for loan ${loan.loanId}:`, result.error || result.message);
+          console.error(`[Cron] ❌ Failed to send email for loan ${loan.loanId}:`, result.error || result.message);
           emailsSkipped++;
         }
       } catch (error) {
-        console.error(`[Cron] Error processing loan ${loan.loanId}:`, error);
+        console.error(`[Cron] ❌ Error processing loan ${loan.loanId || loan._id}:`, error.message);
         emailsSkipped++;
       }
     }
@@ -84,8 +97,8 @@ const startPaymentFailureCron = () => {
   console.log('[Cron] Starting payment failure email cron job...');
   console.log('[Cron] Schedule: Every hour (at minute 0 of each hour)');
   
-  // Run immediately on startup (optional - comment out if you don't want this)
-  // checkAndSendPaymentFailureEmails();
+  // Run immediately on startup to check for failed payments
+  checkAndSendPaymentFailureEmails();
   
   // Schedule to run every hour
   cron.schedule('0 * * * *', () => {

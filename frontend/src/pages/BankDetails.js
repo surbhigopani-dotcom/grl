@@ -150,26 +150,6 @@ const BankDetails = () => {
       toast.dismiss(); // Dismiss any existing toasts
       toast.success('Bank details saved successfully!', { autoClose: 3000 });
       
-      // Check if payment is processing/approved before showing 15 days message
-      try {
-        const loansResponse = await axios.get('/loans');
-        const loans = loansResponse.data.loans || [];
-        const processingLoan = loans.find(loan => 
-          loan.status === 'processing' || 
-          loan.status === 'payment_validation' ||
-          (loan.depositPaid && loan.status !== 'rejected' && loan.status !== 'cancelled')
-        );
-        
-        // Only show 15 days message if payment is actually processing/approved
-        if (processingLoan) {
-          setTimeout(() => {
-            toast.info('✅ Payment verified! Funds will be disbursed to your bank account within 15 days.', { autoClose: 5000 });
-          }, 3500);
-        }
-      } catch (error) {
-        console.error('Error checking loan status:', error);
-      }
-      
       // Navigate back to home
       setTimeout(() => {
         navigate('/home', { state: { bankDetailsSaved: true } });
@@ -218,12 +198,6 @@ const BankDetails = () => {
                 To complete your loan application and enable disbursement, please provide your bank account details. 
                 This information is required for loan processing and fund transfer.
               </p>
-              {/* Show 15 days message only if payment is actually processing/approved */}
-              {hasProcessingLoan && (
-                <p className="text-sm font-semibold text-[#14b8a6] mt-2">
-                  ✅ Payment verified! Funds will be disbursed to your bank account within 15 days after verification.
-                </p>
-              )}
             </div>
           </div>
         </div>
