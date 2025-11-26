@@ -620,11 +620,113 @@ const sendPaymentFailureEmail = async (user, loan) => {
   }
 };
 
+// Send profile completion reminder email
+const sendProfileCompletionReminderEmail = async (user) => {
+  try {
+    if (!user.email || user.email.trim() === '') {
+      console.log(`Skipping profile completion reminder email for user ${user.name} - no email address`);
+      return { success: false, message: 'User email not available' };
+    }
+
+    const transporter = createTransporter();
+    const profileUrl = `${process.env.FRONTEND_URL || 'https://growwloan.online'}/profile-setup`;
+
+    const mailOptions = {
+      from: '"GrowLoan" <no-reply@growwloan.online>',
+      to: user.email,
+      subject: `📋 Action Required: Complete Your GrowLoan Profile`,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Complete Your Profile - GrowLoan</title>
+            <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.05); border-top: 5px solid #14b8a6; }
+                .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+                .header img { max-width: 150px; margin-bottom: 10px; }
+                .header h1 { font-size: 24px; color: #14b8a6; margin: 0; }
+                .content { padding: 20px 0; text-align: left; }
+                .content p { margin-bottom: 15px; }
+                .button-container { text-align: center; margin-top: 25px; }
+                .button { background-color: #14b8a6; color: #ffffff; padding: 12px 25px; border-radius: 5px; text-decoration: none; font-weight: bold; display: inline-block; }
+                .button:hover { background-color: #0d9488; }
+                .details { background-color: #f0fdfa; border-left: 4px solid #14b8a6; padding: 15px; margin-top: 20px; border-radius: 5px; }
+                .details ul { margin: 10px 0 0 20px; padding: 0; }
+                .details li { margin: 8px 0; }
+                .footer { text-align: center; padding-top: 20px; margin-top: 30px; border-top: 1px solid #eee; font-size: 12px; color: #888; }
+                .footer a { color: #14b8a6; text-decoration: none; }
+                .highlight { background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                .highlight strong { color: #d97706; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📋 Complete Your Profile</h1>
+                </div>
+                <div class="content">
+                    <p>Dear ${user.name},</p>
+                    <p>We noticed that your GrowLoan profile is incomplete. To proceed with your loan application, please complete your profile by providing the following information:</p>
+                    
+                    <div class="details">
+                        <strong>Required Information:</strong>
+                        <ul>
+                            <li>✅ Personal Details (Name, Email, Date of Birth)</li>
+                            <li>✅ Address Information (Address, City, State, Pincode)</li>
+                            <li>✅ Employment Details (Employment Type, Company Name)</li>
+                            <li>✅ Identity Documents (Aadhar Number, PAN Number)</li>
+                            <li>✅ Document Uploads (Aadhar Card, PAN Card, Selfie)</li>
+                        </ul>
+                    </div>
+
+                    <div class="highlight">
+                        <strong>⏰ Why Complete Your Profile Now?</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>Faster loan processing and approval</li>
+                            <li>Access to better loan offers</li>
+                            <li>Seamless application experience</li>
+                            <li>Secure your loan eligibility</li>
+                        </ul>
+                    </div>
+
+                    <p>Completing your profile takes just a few minutes and ensures a smooth loan application process.</p>
+                    
+                    <div class="button-container">
+                        <a href="${profileUrl}" class="button">Complete My Profile Now</a>
+                    </div>
+                    
+                    <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+                        If you have any questions or need assistance, please don't hesitate to contact our support team.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated email, please do not reply.</p>
+                    <p>Need help? Contact us at <a href="mailto:support@growwloan.online">support@growwloan.online</a></p>
+                    <p>&copy; ${new Date().getFullYear()} GrowLoan. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending profile completion reminder email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendLoanApprovalEmail,
   sendPaymentSubmissionEmail,
   sendSanctionLetterEmail,
   sendPaymentApprovalEmail,
-  sendPaymentFailureEmail
+  sendPaymentFailureEmail,
+  sendProfileCompletionReminderEmail
 };
 

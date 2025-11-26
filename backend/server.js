@@ -80,6 +80,10 @@ mongoose.connect(MONGODB_URI, {
   // Start payment failure cron job after MongoDB connection
   const { startPaymentFailureCron } = require('./utils/paymentFailureCron');
   startPaymentFailureCron();
+  
+  // Start profile completion reminder cron job
+  const { startProfileCompletionCron } = require('./utils/profileCompletionCron');
+  startProfileCompletionCron();
 })
 .catch(err => console.error('MongoDB connection error:', err));
 

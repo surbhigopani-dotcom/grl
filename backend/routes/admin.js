@@ -137,6 +137,135 @@ router.get('/loans', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/users
+// @desc    Get all users with profile completion details
+// @access  Public (should be protected in production)
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.find().sort({ createdAt: -1 });
+    
+    // Calculate profile completion for each user
+    const usersWithStats = users.map(user => {
+      const totalFields = 11; // Total fields to check
+      let completedFields = 0;
+      const missingFields = [];
+      
+      // Check each field
+      if (user.name && user.name.trim()) completedFields++;
+      else missingFields.push('Name');
+      
+      if (user.email && user.email.trim()) completedFields++;
+      else missingFields.push('Email');
+      
+      if (user.dateOfBirth) completedFields++;
+      else missingFields.push('Date of Birth');
+      
+      if (user.address && user.address.trim()) completedFields++;
+      else missingFields.push('Address');
+      
+      if (user.city && user.city.trim()) completedFields++;
+      else missingFields.push('City');
+      
+      if (user.state && user.state.trim()) completedFields++;
+      else missingFields.push('State');
+      
+      if (user.pincode && user.pincode.trim()) completedFields++;
+      else missingFields.push('Pincode');
+      
+      if (user.employmentType) completedFields++;
+      else missingFields.push('Employment Type');
+      
+      if (user.aadharNumber && user.aadharNumber.trim()) completedFields++;
+      else missingFields.push('Aadhar Number');
+      
+      if (user.panNumber && user.panNumber.trim()) completedFields++;
+      else missingFields.push('PAN Number');
+      
+      // Check documents
+      const hasDocuments = (user.aadharCardUrl && user.panCardUrl && user.selfieUrl);
+      if (hasDocuments) completedFields++;
+      else {
+        if (!user.aadharCardUrl) missingFields.push('Aadhar Card');
+        if (!user.panCardUrl) missingFields.push('PAN Card');
+        if (!user.selfieUrl) missingFields.push('Selfie');
+      }
+      
+      const completionPercentage = Math.round((completedFields / totalFields) * 100);
+      
+      return {
+        ...user.toObject(),
+        completionPercentage,
+        completedFields,
+        totalFields,
+        missingFields,
+        isProfileComplete: user.isProfileComplete || false
+      };
+    });
+    
+    // Calculate overall statistics
+    const totalUsers = users.length;
+    const completeProfiles = users.filter(u => u.isProfileComplete).length;
+    const incompleteProfiles = totalUsers - completeProfiles;
+    const avgCompletion = usersWithStats.length > 0
+      ? Math.round(usersWithStats.reduce((sum, u) => sum + u.completionPercentage, 0) / usersWithStats.length)
+      : 0;
+    
+    res.json({
+      users: usersWithStats,
+      statistics: {
+        totalUsers,
+        completeProfiles,
+        incompleteProfiles,
+        avgCompletionPercentage: avgCompletion
+      }
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/admin/users/stats
+// @desc    Get user statistics summary
+// @access  Public (should be protected in production)
+router.get('/users/stats', async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const completeProfiles = await User.countDocuments({ isProfileComplete: true });
+    const incompleteProfiles = totalUsers - completeProfiles;
+    
+    // Count users by missing fields
+    const missingEmail = await User.countDocuments({ $or: [{ email: '' }, { email: null }, { email: { $exists: false } }] });
+    const missingDOB = await User.countDocuments({ $or: [{ dateOfBirth: null }, { dateOfBirth: { $exists: false } }] });
+    const missingAddress = await User.countDocuments({ $or: [{ address: '' }, { address: null }, { address: { $exists: false } }] });
+    const missingAadhar = await User.countDocuments({ $or: [{ aadharNumber: '' }, { aadharNumber: null }, { aadharNumber: { $exists: false } }] });
+    const missingPAN = await User.countDocuments({ $or: [{ panNumber: '' }, { panNumber: null }, { panNumber: { $exists: false } }] });
+    const missingAadharDoc = await User.countDocuments({ $or: [{ aadharCardUrl: '' }, { aadharCardUrl: null }, { aadharCardUrl: { $exists: false } }] });
+    const missingPANDoc = await User.countDocuments({ $or: [{ panCardUrl: '' }, { panCardUrl: null }, { panCardUrl: { $exists: false } }] });
+    const missingSelfie = await User.countDocuments({ $or: [{ selfieUrl: '' }, { selfieUrl: null }, { selfieUrl: { $exists: false } }] });
+    
+    res.json({
+      totalUsers,
+      completeProfiles,
+      incompleteProfiles,
+      completionRate: totalUsers > 0 ? Math.round((completeProfiles / totalUsers) * 100) : 0,
+      missingFields: {
+        email: missingEmail,
+        dateOfBirth: missingDOB,
+        address: missingAddress,
+        aadharNumber: missingAadhar,
+        panNumber: missingPAN,
+        aadharCard: missingAadharDoc,
+        panCard: missingPANDoc,
+        selfie: missingSelfie
+      }
+    });
+  } catch (error) {
+    console.error('Get user stats error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/admin/payments/validation
 // @desc    Get payments in validation status
 // @access  Public (should be protected in production)

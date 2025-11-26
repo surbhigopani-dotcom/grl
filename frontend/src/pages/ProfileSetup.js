@@ -24,6 +24,8 @@ const ProfileSetup = () => {
   const aadharInputRef = useRef(null);
   const panInputRef = useRef(null);
   const selfieInputRef = useRef(null);
+  const selfieCameraRef = useRef(null);
+  const selfieGalleryRef = useRef(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -132,12 +134,28 @@ const ProfileSetup = () => {
     // Dismiss any existing toasts to prevent duplicates
     toast.dismiss();
 
-    // Validate file type - allow all common document formats
-    const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'rtf', 'odt', 'ods', 'odp'];
+    // Validate file type based on document type
+    let validExtensions = [];
+    if (documentType === 'selfie') {
+      // Selfie only accepts images
+      validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'];
+      if (!file.type.startsWith('image/')) {
+        toast.error('Selfie must be an image file (JPG, PNG, WebP, GIF, BMP)');
+        return;
+      }
+    } else {
+      // Aadhar and PAN accept all document formats
+      validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'rtf', 'odt', 'ods', 'odp'];
+    }
+    
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     
     if (!fileExtension || !validExtensions.includes(fileExtension)) {
-      toast.error('File type not allowed. Allowed formats: Images (JPEG, PNG, WebP, GIF, BMP), Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, RTF, ODT, ODS, ODP)');
+      if (documentType === 'selfie') {
+        toast.error('Selfie must be an image file (JPG, PNG, WebP, GIF, BMP)');
+      } else {
+        toast.error('File type not allowed. Allowed formats: Images (JPEG, PNG, WebP, GIF, BMP), Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, RTF, ODT, ODS, ODP)');
+      }
       return;
     }
 
@@ -209,19 +227,36 @@ const ProfileSetup = () => {
   const handleFileChange = (e, documentType) => {
     const file = e.target.files[0];
     if (file) {
+      // For selfie, only allow images
+      if (documentType === 'selfie') {
+        if (!file.type.startsWith('image/')) {
+          toast.error('Selfie must be an image file (JPG, PNG, etc.)');
+          // Reset the input
+          if (e.target === selfieCameraRef.current) {
+            selfieCameraRef.current.value = '';
+          } else if (e.target === selfieGalleryRef.current) {
+            selfieGalleryRef.current.value = '';
+          }
+          return;
+        }
+      }
       handleFileUpload(file, documentType);
     }
+    // Reset input after selection to allow selecting same file again
+    e.target.value = '';
   };
 
   const removeDocument = (documentType) => {
     setDocuments(prev => ({ ...prev, [documentType]: null }));
-    // Reset input
+    // Reset all inputs for this document type
     if (documentType === 'aadharCard' && aadharInputRef.current) {
       aadharInputRef.current.value = '';
     } else if (documentType === 'panCard' && panInputRef.current) {
       panInputRef.current.value = '';
-    } else if (documentType === 'selfie' && selfieInputRef.current) {
-      selfieInputRef.current.value = '';
+    } else if (documentType === 'selfie') {
+      if (selfieInputRef.current) selfieInputRef.current.value = '';
+      if (selfieCameraRef.current) selfieCameraRef.current.value = '';
+      if (selfieGalleryRef.current) selfieGalleryRef.current.value = '';
     }
   };
 
@@ -745,18 +780,9 @@ const ProfileSetup = () => {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {/* Hidden input for file selection */}
+                      {/* Camera Option - Only for selfie, opens camera directly */}
                       <input
-                        ref={selfieInputRef}
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf,.odt,.ods,.odp,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        onChange={(e) => handleFileChange(e, 'selfie')}
-                        className="hidden"
-                        id="selfie-upload"
-                      />
-                      
-                      {/* Camera Option */}
-                      <input
+                        ref={selfieCameraRef}
                         type="file"
                         accept="image/*"
                         capture="user"
@@ -765,10 +791,11 @@ const ProfileSetup = () => {
                         id="selfie-camera"
                       />
                       
-                      {/* Gallery Option */}
+                      {/* Gallery Option - Only images for selfie */}
                       <input
+                        ref={selfieGalleryRef}
                         type="file"
-                        accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf,.odt,.ods,.odp,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        accept="image/*"
                         onChange={(e) => handleFileChange(e, 'selfie')}
                         className="hidden"
                         id="selfie-gallery"
@@ -778,17 +805,20 @@ const ProfileSetup = () => {
                         {/* Camera Button */}
                         <label
                           htmlFor="selfie-camera"
-                          className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
+                          className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-xl cursor-pointer hover:bg-[#14b8a6]/10 transition-all hover:border-[#14b8a6] active:scale-95"
                         >
                           {uploading.selfie ? (
                             <div className="text-center">
-                              <div className="w-6 h-6 border-3 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
-                              <span className="text-xs text-[#14b8a6]">Uploading...</span>
+                              <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                              <span className="text-sm text-[#14b8a6]">Uploading...</span>
                             </div>
                           ) : (
                             <>
-                              <Upload className="w-6 h-6 text-[#14b8a6] mb-1" />
-                              <span className="text-xs font-medium text-[#14b8a6] text-center">Take Photo</span>
+                              <div className="w-12 h-12 bg-[#14b8a6]/10 rounded-full flex items-center justify-center mb-2">
+                                <Upload className="w-6 h-6 text-[#14b8a6]" />
+                              </div>
+                              <span className="text-sm font-semibold text-[#14b8a6] text-center">📷 Take Photo</span>
+                              <span className="text-xs text-gray-500 mt-1">Open Camera</span>
                             </>
                           )}
                         </label>
@@ -796,22 +826,27 @@ const ProfileSetup = () => {
                         {/* Gallery Button */}
                         <label
                           htmlFor="selfie-gallery"
-                          className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-[#14b8a6] rounded-lg cursor-pointer hover:bg-[#14b8a6]/10 transition-colors"
+                          className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#14b8a6] rounded-xl cursor-pointer hover:bg-[#14b8a6]/10 transition-all hover:border-[#14b8a6] active:scale-95"
                         >
                           {uploading.selfie ? (
                             <div className="text-center">
-                              <div className="w-6 h-6 border-3 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
-                              <span className="text-xs text-[#14b8a6]">Uploading...</span>
+                              <div className="w-8 h-8 border-4 border-[#14b8a6] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                              <span className="text-sm text-[#14b8a6]">Uploading...</span>
                             </div>
                           ) : (
                             <>
-                              <FileImage className="w-6 h-6 text-[#14b8a6] mb-1" />
-                              <span className="text-xs font-medium text-[#14b8a6] text-center">Choose from Gallery</span>
+                              <div className="w-12 h-12 bg-[#14b8a6]/10 rounded-full flex items-center justify-center mb-2">
+                                <FileImage className="w-6 h-6 text-[#14b8a6]" />
+                              </div>
+                              <span className="text-sm font-semibold text-[#14b8a6] text-center">🖼️ Choose from Gallery</span>
+                              <span className="text-xs text-gray-500 mt-1">Select Image</span>
                             </>
                           )}
                         </label>
                       </div>
-                      <p className="text-xs text-gray-500 text-center">All formats accepted (Max 100MB)</p>
+                      <p className="text-xs text-center text-gray-500 mt-2">
+                        Selfie must be an image file (JPG, PNG, WebP, GIF, BMP)
+                      </p>
                     </div>
                   )}
                 </div>

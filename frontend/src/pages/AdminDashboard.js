@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { CheckCircle, XCircle, LogOut, RefreshCw, Clock, DollarSign, Settings, Save } from 'lucide-react';
+import { CheckCircle, XCircle, LogOut, RefreshCw, Clock, DollarSign, Settings, Save, Users, UserCheck, UserX, Percent, Search, Filter, Download } from 'lucide-react';
 import { Loader } from '../components/ui/Loader';
 
 const AdminDashboard = () => {
@@ -21,6 +21,12 @@ const AdminDashboard = () => {
     tax: 0
   });
   const [savingConfig, setSavingConfig] = useState(false);
+  const [activeTab, setActiveTab] = useState('payments'); // 'payments' or 'users'
+  const [users, setUsers] = useState([]);
+  const [userStats, setUserStats] = useState(null);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterComplete, setFilterComplete] = useState('all'); // 'all', 'complete', 'incomplete'
 
   useEffect(() => {
     const adminToken = localStorage.getItem('adminToken');
@@ -32,9 +38,15 @@ const AdminDashboard = () => {
     fetchConfig();
     
     // Refresh every 10 seconds
-    const interval = setInterval(fetchPayments, 10000);
+    const interval = setInterval(() => {
+      if (activeTab === 'payments') {
+        fetchPayments();
+      } else {
+        fetchUsers();
+      }
+    }, 10000);
     return () => clearInterval(interval);
-  }, [navigate]);
+  }, [navigate, activeTab]);
 
   const fetchConfig = async () => {
     try {
@@ -180,6 +192,40 @@ const AdminDashboard = () => {
     return `₹${amount?.toLocaleString('en-IN') || '0'}`;
   };
 
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const [usersResponse, statsResponse] = await Promise.all([
+        axios.get('/admin/users'),
+        axios.get('/admin/users/stats')
+      ]);
+      setUsers(usersResponse.data.users || []);
+      setUserStats(statsResponse.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('adminToken');
+        navigate('/admin/login');
+      }
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  // Filter users based on search and completion status
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = !searchTerm || 
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.phone?.includes(searchTerm) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = filterComplete === 'all' ||
+      (filterComplete === 'complete' && user.isProfileComplete) ||
+      (filterComplete === 'incomplete' && !user.isProfileComplete);
+    
+    return matchesSearch && matchesFilter;
+  });
+
   if (loading) {
     return <Loader fullScreen text="Loading payments..." size="lg" />;
   }
@@ -205,11 +251,11 @@ const AdminDashboard = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={fetchPayments}
+                onClick={activeTab === 'payments' ? fetchPayments : fetchUsers}
                 className="rounded-xl"
-                disabled={loading}
+                disabled={loading || usersLoading}
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 mr-2 ${(loading || usersLoading) ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Button
@@ -226,6 +272,42 @@ const AdminDashboard = () => {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Tabs */}
+        <div className="bg-card rounded-2xl p-2 mb-6 border border-border shadow-sm flex gap-2">
+          <button
+            onClick={() => {
+              setActiveTab('payments');
+              fetchPayments();
+            }}
+            className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
+              activeTab === 'payments'
+                ? 'bg-[#14b8a6] text-white shadow-md'
+                : 'bg-transparent text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              <span>Payment Validation</span>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('users');
+              fetchUsers();
+            }}
+            className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
+              activeTab === 'users'
+                ? 'bg-[#14b8a6] text-white shadow-md'
+                : 'bg-transparent text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Users className="w-5 h-5" />
+              <span>User Management</span>
+            </div>
+          </button>
+        </div>
+
         {/* Configuration */}
         {showConfig && (
           <div className="bg-card rounded-3xl p-6 mb-8 border border-border shadow-lg">
@@ -351,49 +433,288 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-card rounded-2xl p-6 border border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Pending Validation</p>
-                <p className="text-3xl font-bold text-warning">{payments.length}</p>
+        {/* Stats - Dynamic based on active tab */}
+        {activeTab === 'payments' ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-card rounded-2xl p-6 border border-border shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Pending Validation</p>
+                  <p className="text-3xl font-bold text-warning">{payments.length}</p>
+                </div>
+                <Clock className="w-12 h-12 text-warning/50" />
               </div>
-              <Clock className="w-12 h-12 text-warning/50" />
             </div>
-          </div>
-          <div className="bg-card rounded-2xl p-6 border border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
-                <p className="text-3xl font-bold text-primary">
-                  {formatCurrency(payments.reduce((sum, p) => sum + (p.totalPaymentAmount || 0), 0))}
-                </p>
+            <div className="bg-card rounded-2xl p-6 border border-border shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
+                  <p className="text-3xl font-bold text-primary">
+                    {formatCurrency(payments.reduce((sum, p) => sum + (p.totalPaymentAmount || 0), 0))}
+                  </p>
+                </div>
+                <DollarSign className="w-12 h-12 text-primary/50" />
               </div>
-              <DollarSign className="w-12 h-12 text-primary/50" />
             </div>
-          </div>
-          <div className="bg-card rounded-2xl p-6 border border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Average Amount</p>
-                <p className="text-3xl font-bold text-success">
-                  {formatCurrency(payments.length > 0 ? payments.reduce((sum, p) => sum + (p.totalPaymentAmount || 0), 0) / payments.length : 0)}
-                </p>
+            <div className="bg-card rounded-2xl p-6 border border-border shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Average Amount</p>
+                  <p className="text-3xl font-bold text-success">
+                    {formatCurrency(payments.length > 0 ? payments.reduce((sum, p) => sum + (p.totalPaymentAmount || 0), 0) / payments.length : 0)}
+                  </p>
+                </div>
+                <DollarSign className="w-12 h-12 text-success/50" />
               </div>
-              <DollarSign className="w-12 h-12 text-success/50" />
             </div>
-          </div>
-        </div>
-
-        {/* Payments List */}
-        {payments.length === 0 ? (
-          <div className="bg-card rounded-3xl p-12 text-center border border-border">
-            <div className="text-6xl mb-4">✅</div>
-            <h2 className="text-2xl font-bold mb-4">No Payments Pending</h2>
-            <p className="text-muted-foreground">All payments have been processed</p>
           </div>
         ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-blue-100 mb-1">Total Users</p>
+                  <p className="text-3xl font-bold">{userStats?.totalUsers || 0}</p>
+                </div>
+                <Users className="w-12 h-12 text-white/50" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-green-100 mb-1">Complete Profiles</p>
+                  <p className="text-3xl font-bold">{userStats?.completeProfiles || 0}</p>
+                </div>
+                <UserCheck className="w-12 h-12 text-white/50" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-orange-100 mb-1">Incomplete Profiles</p>
+                  <p className="text-3xl font-bold">{userStats?.incompleteProfiles || 0}</p>
+                </div>
+                <UserX className="w-12 h-12 text-white/50" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-purple-100 mb-1">Avg. Completion</p>
+                  <p className="text-3xl font-bold">{userStats?.completionRate || 0}%</p>
+                </div>
+                <Percent className="w-12 h-12 text-white/50" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* User Management Section */}
+        {activeTab === 'users' && (
+          <>
+            {usersLoading ? (
+              <Loader fullScreen text="Loading users..." size="lg" />
+            ) : (
+              <>
+                {/* Search and Filter */}
+                <div className="bg-card rounded-2xl p-4 mb-6 border border-border shadow-sm">
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="Search by name, phone, or email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 h-12 rounded-xl"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <select
+                        value={filterComplete}
+                        onChange={(e) => setFilterComplete(e.target.value)}
+                        className="px-4 py-2 rounded-xl border border-border bg-background text-foreground"
+                      >
+                        <option value="all">All Users</option>
+                        <option value="complete">Complete Profiles</option>
+                        <option value="incomplete">Incomplete Profiles</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Missing Fields Summary */}
+                {userStats && (
+                  <div className="bg-card rounded-2xl p-6 mb-6 border border-border shadow-lg">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Filter className="w-5 h-5" />
+                      Missing Details Summary
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                        <p className="text-sm text-red-600 mb-1">Missing Email</p>
+                        <p className="text-2xl font-bold text-red-700">{userStats.missingFields?.email || 0}</p>
+                      </div>
+                      <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                        <p className="text-sm text-orange-600 mb-1">Missing DOB</p>
+                        <p className="text-2xl font-bold text-orange-700">{userStats.missingFields?.dateOfBirth || 0}</p>
+                      </div>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                        <p className="text-sm text-yellow-600 mb-1">Missing Address</p>
+                        <p className="text-2xl font-bold text-yellow-700">{userStats.missingFields?.address || 0}</p>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                        <p className="text-sm text-blue-600 mb-1">Missing Aadhar</p>
+                        <p className="text-2xl font-bold text-blue-700">{userStats.missingFields?.aadharNumber || 0}</p>
+                      </div>
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                        <p className="text-sm text-indigo-600 mb-1">Missing PAN</p>
+                        <p className="text-2xl font-bold text-indigo-700">{userStats.missingFields?.panNumber || 0}</p>
+                      </div>
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+                        <p className="text-sm text-purple-600 mb-1">Missing Aadhar Doc</p>
+                        <p className="text-2xl font-bold text-purple-700">{userStats.missingFields?.aadharCard || 0}</p>
+                      </div>
+                      <div className="bg-pink-50 border border-pink-200 rounded-xl p-3">
+                        <p className="text-sm text-pink-600 mb-1">Missing PAN Doc</p>
+                        <p className="text-2xl font-bold text-pink-700">{userStats.missingFields?.panCard || 0}</p>
+                      </div>
+                      <div className="bg-teal-50 border border-teal-200 rounded-xl p-3">
+                        <p className="text-sm text-teal-600 mb-1">Missing Selfie</p>
+                        <p className="text-2xl font-bold text-teal-700">{userStats.missingFields?.selfie || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Users List */}
+                {filteredUsers.length === 0 ? (
+                  <div className="bg-card rounded-3xl p-12 text-center border border-border">
+                    <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold mb-4">No Users Found</h2>
+                    <p className="text-muted-foreground">
+                      {searchTerm ? 'Try adjusting your search criteria' : 'No users registered yet'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredUsers.map((user) => (
+                      <div
+                        key={user._id}
+                        className="bg-card rounded-2xl p-6 border border-border shadow-lg hover:shadow-xl transition-shadow"
+                      >
+                        <div className="grid md:grid-cols-3 gap-6">
+                          {/* User Info */}
+                          <div className="space-y-3">
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">User Information</div>
+                              <div className="font-bold text-lg">{user.name || 'N/A'}</div>
+                              <div className="text-sm text-muted-foreground">{user.phone || 'N/A'}</div>
+                              <div className="text-sm text-muted-foreground">{user.email || 'No Email'}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Registration Date</div>
+                              <div className="text-sm font-medium">
+                                {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN') : 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Profile Completion */}
+                          <div className="space-y-3">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold">Profile Completion</span>
+                                <span className={`text-lg font-bold ${
+                                  user.completionPercentage >= 100 ? 'text-green-600' :
+                                  user.completionPercentage >= 70 ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`}>
+                                  {user.completionPercentage}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-3">
+                                <div
+                                  className={`h-3 rounded-full transition-all ${
+                                    user.completionPercentage >= 100 ? 'bg-green-500' :
+                                    user.completionPercentage >= 70 ? 'bg-yellow-500' :
+                                    'bg-red-500'
+                                  }`}
+                                  style={{ width: `${user.completionPercentage}%` }}
+                                />
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {user.completedFields} of {user.totalFields} fields completed
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Status</div>
+                              <div className="flex items-center gap-2">
+                                {user.isProfileComplete ? (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm font-semibold text-green-600">Complete</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="w-4 h-4 text-red-600" />
+                                    <span className="text-sm font-semibold text-red-600">Incomplete</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Missing Details */}
+                          <div className="space-y-3">
+                            <div>
+                              <div className="text-sm font-semibold mb-2">Missing Details</div>
+                              {user.missingFields && user.missingFields.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {user.missingFields.map((field, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-lg font-medium"
+                                    >
+                                      {field}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 text-green-600">
+                                  <CheckCircle className="w-4 h-4" />
+                                  <span className="text-sm font-medium">All details complete</span>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Loan Statistics</div>
+                              <div className="text-sm">
+                                Applied: <span className="font-semibold">{user.totalLoansApplied || 0}</span> | 
+                                Approved: <span className="font-semibold text-green-600">{user.totalLoansApproved || 0}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Payments List */}
+        {activeTab === 'payments' && (
+          <>
+            {payments.length === 0 ? (
+              <div className="bg-card rounded-3xl p-12 text-center border border-border">
+                <div className="text-6xl mb-4">✅</div>
+                <h2 className="text-2xl font-bold mb-4">No Payments Pending</h2>
+                <p className="text-muted-foreground">All payments have been processed</p>
+              </div>
+            ) : (
           <div className="space-y-4">
             {payments.map((payment) => (
               <div
@@ -514,6 +835,8 @@ const AdminDashboard = () => {
               </div>
             ))}
           </div>
+            )}
+          </>
         )}
       </div>
     </div>

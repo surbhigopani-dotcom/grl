@@ -26,11 +26,27 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter - allow all common document formats
+// File filter - allow all common document formats, but restrict selfie to images only
 const fileFilter = (req, file, cb) => {
-  // Allowed file extensions
+  const documentType = req.body.documentType;
+  
+  // For selfie, only allow images
+  if (documentType === 'selfie') {
+    const imageExtensions = /jpeg|jpg|png|webp|gif|bmp/;
+    const imageMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'];
+    
+    const extname = imageExtensions.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = imageMimeTypes.includes(file.mimetype);
+    
+    if (mimetype || extname) {
+      return cb(null, true);
+    } else {
+      return cb(new Error('Selfie must be an image file (JPG, PNG, WebP, GIF, BMP)'));
+    }
+  }
+  
+  // For Aadhar and PAN, allow all document formats
   const allowedExtensions = /jpeg|jpg|png|webp|pdf|doc|docx|xls|xlsx|txt|csv|rtf|odt|ods|odp/;
-  // Allowed MIME types
   const allowedMimeTypes = [
     // Images
     'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp',
