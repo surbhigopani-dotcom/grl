@@ -616,7 +616,19 @@ const sendPaymentFailureEmail = async (user, loan) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('Error sending payment failure email:', error);
-    return { success: false, error: error.message };
+    
+    // Check if it's a rate limit error
+    const isRateLimit = error.message?.includes('Ratelimit') || 
+                        error.response?.includes('Ratelimit') ||
+                        (error.responseCode === 451 && error.response?.includes('Ratelimit'));
+    
+    return { 
+      success: false, 
+      error: error.message,
+      isRateLimit: isRateLimit,
+      responseCode: error.responseCode,
+      response: error.response
+    };
   }
 };
 

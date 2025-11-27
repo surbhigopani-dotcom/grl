@@ -238,6 +238,84 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Verify WhatsApp OTP
+  const verifyWhatsAppOTP = async (phone, otp, name) => {
+    try {
+      console.log('=== FRONTEND: verifyWhatsAppOTP START ===');
+      console.log('Phone:', phone);
+      console.log('OTP:', otp);
+      console.log('Name provided:', name || 'Not provided');
+      
+      const requestData = {
+        phone: phone,
+        otp: otp,
+        name: name || undefined
+      };
+      
+      console.log('Sending request to /auth/verify-otp...');
+      const response = await axios.post('/auth/verify-otp', requestData);
+      console.log('Response received:', {
+        hasToken: !!response.data.token,
+        hasUser: !!response.data.user,
+        isNewUser: response.data.isNewUser
+      });
+      
+      const { token, user, isNewUser } = response.data;
+      localStorage.setItem('token', token);
+      localStorage.setItem('hasFirebaseAuth', 'false'); // Mark as WhatsApp OTP login (no Firebase)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(user);
+      console.log('User set in context:', {
+        id: user.id,
+        name: user.name,
+        phone: user.phone
+      });
+      
+      toast.success(isNewUser ? 'Account created successfully!' : 'Login successful!');
+      
+      // Check if profile is complete
+      const isProfileComplete = !!(
+        user.name &&
+        user.phone &&
+        user.email &&
+        user.dateOfBirth &&
+        user.address &&
+        user.city &&
+        user.state &&
+        user.pincode &&
+        user.employmentType &&
+        user.aadharNumber &&
+        user.panNumber
+      );
+      
+      console.log('Profile complete check:', {
+        isProfileComplete,
+        hasName: !!user.name,
+        hasPhone: !!user.phone,
+        hasEmail: !!user.email
+      });
+      
+      return {
+        success: true,
+        needsProfileSetup: !isProfileComplete,
+        isNewUser
+      };
+    } catch (error) {
+      console.error('=== FRONTEND: verifyWhatsAppOTP ERROR ===');
+      console.error('Error:', error);
+      console.error('Error response:', error.response?.data);
+      
+      if (error.response?.data?.requiresName) {
+        return {
+          success: false,
+          requiresName: true
+        };
+      }
+      
+      throw error;
+    }
+  };
+
   const loginWithFirebase = async (idToken, phoneNumber, name) => {
     try {
       console.log('=== FRONTEND: loginWithFirebase START ===');
@@ -378,6 +456,7 @@ export const AuthProvider = ({ children }) => {
       loading, 
       sendOTP, 
       loginWithFirebase,
+      verifyWhatsAppOTP,
       loginWithPhoneDirect,
       updateProfile,
       logout: handleLogout, 

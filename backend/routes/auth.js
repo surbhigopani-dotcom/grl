@@ -3,8 +3,10 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const OTP = require('../models/OTP');
 const auth = require('../middleware/auth');
 const { auth: firebaseAuth } = require('../config/firebaseAdmin');
+const { sendOTP: sendWhatsAppOTP, cleanPhoneNumber } = require('../utils/whatsappService');
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -480,8 +482,79 @@ router.put('/profile', auth, [
   body('companyName').optional().trim(),
   body('aadharNumber').optional().trim(),
   body('panNumber').optional().trim(),
-  body('bankAccountNumber').optional().trim(),
-  body('ifscCode').optional().trim(),
+  body('bankAccountNumber').optional().trim()
+    .custom((value) => {
+      if (!value || value === '') return true; // Allow empty
+      const cleanValue = value.replace(/\s|-/g, '');
+      if (!/^\d{9,18}$/.test(cleanValue)) {
+        throw new Error('Bank account number must be 9-18 digits only');
+      }
+      // Reject all same digits
+      if (/^(\d)\1+$/.test(cleanValue)) {
+        throw new Error('Invalid bank account number');
+      }
+      return true;
+    }),
+  body('ifscCode').optional().trim()
+    .custom((value) => {
+      if (!value || value === '') return true; // Allow empty
+      const cleanValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (cleanValue.length !== 11) {
+        throw new Error('IFSC code must be exactly 11 characters');
+      }
+      // First 4 must be letters only
+      if (!/^[A-Z]{4}$/.test(cleanValue.substring(0, 4))) {
+        throw new Error('First 4 characters of IFSC must be letters only');
+      }
+      // 5th must be 0
+      if (cleanValue[4] !== '0') {
+        throw new Error('5th character of IFSC must be 0');
+      }
+      // Full format validation
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanValue)) {
+        throw new Error('Invalid IFSC format. Format: 4 letters + 0 + 6 alphanumeric (e.g., HDFC0001234)');
+      }
+      return true;
+    }),
+  body('bankName').optional().trim()
+    .custom((value) => {
+      if (!value || value === '') return true; // Allow empty
+      const trimmed = value.trim();
+      if (trimmed.length < 3 || trimmed.length > 100) {
+        throw new Error('Bank name must be between 3 and 100 characters');
+      }
+      if (!/^[a-zA-Z]/.test(trimmed)) {
+        throw new Error('Bank name must start with a letter');
+      }
+      if (!/[a-zA-Z]/.test(trimmed)) {
+        throw new Error('Bank name must contain at least one letter');
+      }
+      if (!/^[a-zA-Z0-9\s.'&-]+$/.test(trimmed)) {
+        throw new Error('Bank name contains invalid characters');
+      }
+      if (/^\d+$/.test(trimmed.replace(/\s/g, ''))) {
+        throw new Error('Bank name cannot be only numbers');
+      }
+      return true;
+    }),
+  body('accountHolderName').optional().trim()
+    .custom((value) => {
+      if (!value || value === '') return true; // Allow empty
+      const trimmed = value.trim();
+      if (trimmed.length < 3 || trimmed.length > 50) {
+        throw new Error('Account holder name must be between 3 and 50 characters');
+      }
+      if (!/^[a-zA-Z]/.test(trimmed) || !/[a-zA-Z]$/.test(trimmed)) {
+        throw new Error('Name must start and end with a letter');
+      }
+      if (/\d/.test(trimmed)) {
+        throw new Error('Name cannot contain numbers');
+      }
+      if (!/^[a-zA-Z]+([\s.'-][a-zA-Z]+)*$/.test(trimmed)) {
+        throw new Error('Invalid name format. Use proper name format');
+      }
+      return true;
+    }),
   body('additionalDetails').optional().trim()
 ], async (req, res) => {
   try {
@@ -498,7 +571,7 @@ router.put('/profile', auth, [
     // Update allowed fields
     const allowedFields = ['name', 'email', 'dateOfBirth', 'address', 'city', 'state', 'pincode',
                           'employmentType', 'companyName', 'aadharNumber', 'panNumber', 
-                          'bankAccountNumber', 'ifscCode', 'additionalDetails',
+                          'bankAccountNumber', 'ifscCode', 'bankName', 'accountHolderName', 'additionalDetails',
                           'aadharCardUrl', 'panCardUrl', 'selfieUrl'];
     
     allowedFields.forEach(field => {
@@ -520,6 +593,26 @@ router.put('/profile', auth, [
         } else if (field === 'aadharCardUrl' || field === 'panCardUrl' || field === 'selfieUrl') {
           // Handle document URLs - allow empty string or null
           user[field] = req.body[field] || '';
+        } else if (field === 'bankAccountNumber' || field === 'ifscCode') {
+          // Bank account number and IFSC code - validate and clean
+          if (req.body[field] !== undefined && req.body[field] !== null && req.body[field] !== '') {
+            if (field === 'bankAccountNumber') {
+              // Remove any spaces or dashes, keep only digits
+              user[field] = req.body[field].replace(/\s|-/g, '');
+            } else if (field === 'ifscCode') {
+              // Convert to uppercase and remove invalid characters
+              user[field] = req.body[field].toUpperCase().replace(/[^A-Z0-9]/g, '');
+            }
+          } else {
+            user[field] = req.body[field] || '';
+          }
+        } else if (field === 'bankName' || field === 'accountHolderName') {
+          // Bank name and account holder name - trim and validate
+          if (req.body[field] !== undefined && req.body[field] !== null) {
+            user[field] = req.body[field].trim() || '';
+          } else {
+            user[field] = '';
+          }
         } else {
           // For other string fields
           user[field] = req.body[field] || '';
@@ -551,6 +644,8 @@ router.put('/profile', auth, [
         panNumber: user.panNumber,
         bankAccountNumber: user.bankAccountNumber,
         ifscCode: user.ifscCode,
+        bankName: user.bankName,
+        accountHolderName: user.accountHolderName,
         additionalDetails: user.additionalDetails,
         isProfileComplete: user.isProfileComplete
       }
@@ -558,6 +653,291 @@ router.put('/profile', auth, [
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/send-otp
+// @desc    Send OTP via WhatsApp
+// @access  Public
+router.post('/send-otp', [
+  body('phone').notEmpty().withMessage('Phone number is required')
+    .isLength({ min: 10, max: 10 }).withMessage('Phone number must be 10 digits')
+    .matches(/^\d+$/).withMessage('Phone number must contain only digits')
+], async (req, res) => {
+  try {
+    console.log('=== SEND OTP REQUEST ===');
+    console.log('Request received at:', new Date().toISOString());
+    console.log('Request body:', req.body);
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { phone } = req.body;
+    
+    // Clean phone number
+    const cleanPhone = cleanPhoneNumber(phone);
+    console.log('Cleaned phone:', cleanPhone);
+
+    // Validate phone number
+    if (cleanPhone.length !== 10 || !/^\d+$/.test(cleanPhone)) {
+      return res.status(400).json({ 
+        message: 'Invalid phone number. Must be 10 digits.' 
+      });
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('Generated OTP:', otpCode);
+
+    // Set expiration time (10 minutes)
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    // Delete any existing OTP for this phone number
+    await OTP.deleteMany({ phone: cleanPhone, isUsed: false });
+
+    // Create new OTP record
+    const otpRecord = new OTP({
+      phone: cleanPhone,
+      code: otpCode,
+      expiresAt: expiresAt,
+      isUsed: false,
+      attempts: 0
+    });
+
+    await otpRecord.save();
+    console.log('OTP record saved to database');
+
+    // Send OTP via WhatsApp
+    const whatsappResult = await sendWhatsAppOTP(cleanPhone, otpCode);
+
+    if (!whatsappResult.success) {
+      console.error('Failed to send OTP via WhatsApp:', whatsappResult.error);
+      // Delete the OTP record if WhatsApp sending failed
+      await OTP.deleteOne({ _id: otpRecord._id });
+      
+      return res.status(500).json({
+        message: whatsappResult.error || 'Failed to send OTP',
+        success: false
+      });
+    }
+
+    console.log('✅ OTP sent successfully via WhatsApp');
+    console.log('Request ID:', whatsappResult.requestId);
+    console.log('=== SEND OTP SUCCESS ===\n');
+
+    // Check if user exists
+    const user = await User.findOne({ phone: cleanPhone });
+    const isNewUser = !user;
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully via WhatsApp',
+      requestId: whatsappResult.requestId,
+      isNewUser: isNewUser,
+      expiresIn: 600 // 10 minutes in seconds
+    });
+
+  } catch (error) {
+    console.error('=== SEND OTP ERROR ===');
+    console.error('Error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('=== SEND OTP ERROR END ===\n');
+    res.status(500).json({ 
+      message: 'Server error while sending OTP',
+      success: false
+    });
+  }
+});
+
+// @route   POST /api/auth/verify-otp
+// @desc    Verify OTP and login/signup user
+// @access  Public
+router.post('/verify-otp', [
+  body('phone').notEmpty().withMessage('Phone number is required')
+    .isLength({ min: 10, max: 10 }).withMessage('Phone number must be 10 digits')
+    .matches(/^\d+$/).withMessage('Phone number must contain only digits'),
+  body('otp').notEmpty().withMessage('OTP is required')
+    .isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
+    .matches(/^\d+$/).withMessage('OTP must contain only digits'),
+  body('name').optional().trim()
+], async (req, res) => {
+  try {
+    console.log('=== VERIFY OTP REQUEST ===');
+    console.log('Request received at:', new Date().toISOString());
+    console.log('Request body keys:', Object.keys(req.body));
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { phone, otp, name } = req.body;
+    
+    // Clean phone number
+    const cleanPhone = cleanPhoneNumber(phone);
+    console.log('Cleaned phone:', cleanPhone);
+    console.log('OTP provided:', otp);
+
+    // Find OTP record
+    const otpRecord = await OTP.findOne({ 
+      phone: cleanPhone, 
+      isUsed: false 
+    }).sort({ createdAt: -1 }); // Get the most recent OTP
+
+    if (!otpRecord) {
+      console.log('No OTP record found for phone:', cleanPhone);
+      return res.status(400).json({ 
+        message: 'OTP not found or already used. Please request a new OTP.',
+        success: false
+      });
+    }
+
+    // Check if OTP is expired
+    if (new Date() > otpRecord.expiresAt) {
+      console.log('OTP expired');
+      await OTP.deleteOne({ _id: otpRecord._id });
+      return res.status(400).json({ 
+        message: 'OTP has expired. Please request a new OTP.',
+        success: false
+      });
+    }
+
+    // Check attempts (max 5 attempts)
+    if (otpRecord.attempts >= 5) {
+      console.log('Max attempts reached');
+      await OTP.updateOne({ _id: otpRecord._id }, { isUsed: true });
+      return res.status(400).json({ 
+        message: 'Maximum verification attempts exceeded. Please request a new OTP.',
+        success: false
+      });
+    }
+
+    // Verify OTP
+    if (otpRecord.code !== otp) {
+      console.log('Invalid OTP');
+      // Increment attempts
+      otpRecord.attempts += 1;
+      await otpRecord.save();
+      
+      const remainingAttempts = 5 - otpRecord.attempts;
+      return res.status(400).json({ 
+        message: `Invalid OTP. ${remainingAttempts} attempt(s) remaining.`,
+        success: false,
+        remainingAttempts: remainingAttempts
+      });
+    }
+
+    // OTP is valid - mark as used
+    otpRecord.isUsed = true;
+    await otpRecord.save();
+    console.log('✅ OTP verified successfully');
+
+    // Find or create user
+    let user = await User.findOne({ phone: cleanPhone });
+    let isNewUserFlag = false;
+
+    if (!user) {
+      console.log('User not found - NEW USER SIGNUP');
+      // New user signup - name is required
+      if (!name || !name.trim()) {
+        console.log('Name required for new user');
+        return res.status(400).json({ 
+          message: 'Name is required for new users',
+          isNewUser: true,
+          requiresName: true,
+          success: false
+        });
+      }
+      
+      console.log('Creating new user with phone:', cleanPhone, 'and name:', name.trim());
+      user = new User({
+        phone: cleanPhone,
+        name: name.trim(),
+        isPhoneVerified: true,
+        totalLoansApplied: 0,
+        totalLoansApproved: 0,
+        employmentType: null
+      });
+      
+      await user.save();
+      console.log('New user created successfully');
+      console.log('User ID:', user._id);
+      isNewUserFlag = true;
+    } else {
+      console.log('User found - EXISTING USER LOGIN');
+      console.log('User ID:', user._id);
+      console.log('User name:', user.name);
+      // Existing user login
+      user.isPhoneVerified = true;
+      user.lastLoginAt = new Date();
+      await user.save();
+      console.log('User updated successfully');
+      isNewUserFlag = false;
+    }
+
+    // Generate JWT token
+    console.log('Generating JWT token for user:', user._id);
+    const token = generateToken(user._id);
+    console.log('JWT token generated successfully');
+
+    const responseData = {
+      success: true,
+      message: 'OTP verified successfully',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        dateOfBirth: user.dateOfBirth,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        pincode: user.pincode,
+        employmentType: user.employmentType,
+        companyName: user.companyName,
+        aadharNumber: user.aadharNumber,
+        panNumber: user.panNumber,
+        bankAccountNumber: user.bankAccountNumber,
+        ifscCode: user.ifscCode,
+        additionalDetails: user.additionalDetails,
+        isPhoneVerified: user.isPhoneVerified,
+        isProfileComplete: user.isProfileComplete,
+        totalLoansApplied: user.totalLoansApplied,
+        totalLoansApproved: user.totalLoansApproved
+      },
+      isNewUser: isNewUserFlag
+    };
+    
+    console.log('=== VERIFY OTP SUCCESS ===');
+    console.log('Is new user:', isNewUserFlag);
+    console.log('User ID:', user._id);
+    console.log('Token generated:', !!token);
+    console.log('=== VERIFY OTP COMPLETE ===\n');
+    
+    res.json(responseData);
+
+  } catch (error) {
+    console.error('=== VERIFY OTP ERROR ===');
+    console.error('Error occurred at:', new Date().toISOString());
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    if (error.errors) {
+      console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
+    }
+    if (error.stack) {
+      console.error('Error stack:', error.stack);
+    }
+    console.error('=== VERIFY OTP ERROR END ===\n');
+    res.status(500).json({ 
+      message: 'Server error during OTP verification',
+      success: false
+    });
   }
 });
 

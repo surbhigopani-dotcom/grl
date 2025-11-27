@@ -75,19 +75,88 @@ const userSchema = new mongoose.Schema({
   },
   bankAccountNumber: {
     type: String,
-    default: ''
+    default: '',
+    validate: {
+      validator: function(value) {
+        // Allow empty string
+        if (!value || value === '') return true;
+        // Must be 9-18 digits only
+        const cleanValue = value.replace(/\s|-/g, '');
+        if (!/^\d{9,18}$/.test(cleanValue)) {
+          return false;
+        }
+        // Cannot be all same digits
+        if (/^(\d)\1+$/.test(cleanValue)) {
+          return false;
+        }
+        return true;
+      },
+      message: 'Bank account number must be 9-18 digits and cannot be all same digits'
+    }
   },
   ifscCode: {
     type: String,
-    default: ''
+    default: '',
+    validate: {
+      validator: function(value) {
+        // Allow empty string
+        if (!value || value === '') return true;
+        // Must be exactly 11 characters: 4 letters + 0 + 6 alphanumeric
+        const cleanValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (cleanValue.length !== 11) return false;
+        // First 4 must be letters only
+        if (!/^[A-Z]{4}$/.test(cleanValue.substring(0, 4))) return false;
+        // 5th must be 0
+        if (cleanValue[4] !== '0') return false;
+        // Full format validation
+        return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanValue);
+      },
+      message: 'IFSC code must be exactly 11 characters: 4 letters + 0 + 6 alphanumeric (e.g., HDFC0001234)'
+    }
   },
   bankName: {
     type: String,
-    default: ''
+    default: '',
+    validate: {
+      validator: function(value) {
+        // Allow empty string
+        if (!value || value === '') return true;
+        const trimmed = value.trim();
+        // Must be 3-100 characters
+        if (trimmed.length < 3 || trimmed.length > 100) return false;
+        // Must start with letter
+        if (!/^[a-zA-Z]/.test(trimmed)) return false;
+        // Must contain at least one letter
+        if (!/[a-zA-Z]/.test(trimmed)) return false;
+        // Valid characters only
+        if (!/^[a-zA-Z0-9\s.'&-]+$/.test(trimmed)) return false;
+        // Cannot be only numbers
+        if (/^\d+$/.test(trimmed.replace(/\s/g, ''))) return false;
+        return true;
+      },
+      message: 'Bank name must be 3-100 characters, start with a letter, and contain valid characters'
+    }
   },
   accountHolderName: {
     type: String,
-    default: ''
+    default: '',
+    validate: {
+      validator: function(value) {
+        // Allow empty string
+        if (!value || value === '') return true;
+        const trimmed = value.trim();
+        // Must be 3-50 characters
+        if (trimmed.length < 3 || trimmed.length > 50) return false;
+        // Must start and end with letter
+        if (!/^[a-zA-Z]/.test(trimmed) || !/[a-zA-Z]$/.test(trimmed)) return false;
+        // Cannot contain numbers
+        if (/\d/.test(trimmed)) return false;
+        // Valid format: letters with optional spaces, dots, hyphens, apostrophes
+        if (!/^[a-zA-Z]+([\s.'-][a-zA-Z]+)*$/.test(trimmed)) return false;
+        return true;
+      },
+      message: 'Account holder name must be 3-50 characters, start/end with letter, no numbers, proper name format'
+    }
   },
   
   // Document URLs

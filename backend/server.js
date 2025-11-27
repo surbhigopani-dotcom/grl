@@ -82,6 +82,10 @@ mongoose.connect(MONGODB_URI, {
   // Start profile completion reminder cron job
   const { startProfileCompletionCron } = require('./utils/profileCompletionCron');
   startProfileCompletionCron();
+  
+  // Start payment reminder cron job
+  const { startPaymentReminderCron } = require('./utils/paymentReminderCron');
+  startPaymentReminderCron();
 })
 .catch(err => console.error('MongoDB connection error:', err));
 

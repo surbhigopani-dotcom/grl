@@ -20,13 +20,35 @@ For local development, the frontend is now configured to use:
 
 ### 3. Environment Variables
 
-Create `.env` file in `frontend` folder (optional):
+**Frontend `.env` file** (optional):
+
+Create `.env` file in `frontend` folder:
 
 ```env
 REACT_APP_API_URL=http://localhost:5000/api
 ```
 
 Or use the proxy (default - no .env needed).
+
+**Backend `.env` file** (required for WhatsApp OTP):
+
+Create `.env` file in `backend` folder:
+
+```env
+# JWT Secret
+JWT_SECRET=your_jwt_secret_here
+
+# WhatsApp API Configuration (for OTP)
+WHATSAPP_API_KEY=c266a3f87bae4e209050834b27d669ba
+WHATSAPP_COUNTRY_CODE=IN
+
+# MongoDB Connection
+MONGODB_URI=your_mongodb_connection_string
+
+# Other environment variables...
+```
+
+See `WHATSAPP_OTP_SETUP.md` for detailed WhatsApp OTP configuration.
 
 ### 4. Start Frontend
 

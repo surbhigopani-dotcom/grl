@@ -29,13 +29,44 @@ const checkAndSendPaymentFailureEmails = async () => {
 
     let emailsSent = 0;
     let emailsSkipped = 0;
+    let rateLimitHit = false;
 
-    for (const loan of failedLoans) {
+    // Helper function to delay execution
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Helper function to check if error is rate limit
+    const isRateLimitError = (error) => {
+      // Check if email service returned isRateLimit flag
+      if (error?.isRateLimit === true) {
+        return true;
+      }
+      // Check error message/response for rate limit indicators
+      return error?.message?.includes('Ratelimit') || 
+             error?.response?.includes('Ratelimit') ||
+             error?.code === 'ERATELIMIT' ||
+             (error?.responseCode === 451 && error?.response?.includes('Ratelimit'));
+    };
+
+    for (let i = 0; i < failedLoans.length; i++) {
+      const loan = failedLoans[i];
+      
       try {
+        // If rate limit was hit, wait longer before continuing
+        if (rateLimitHit) {
+          console.log(`[Cron] Rate limit detected. Waiting 60 seconds before continuing...`);
+          await delay(60000); // Wait 60 seconds
+          rateLimitHit = false; // Reset flag
+        }
+
+        // Add delay between emails to avoid rate limiting (2 seconds between emails)
+        if (i > 0) {
+          await delay(2000); // 2 second delay between emails
+        }
+
         // Create unique key for this loan to track if we've sent email
         const loanKey = `${loan._id}_${loan.updatedAt?.getTime() || 0}`;
         
-        console.log(`[Cron] Processing loan ${loan.loanId || loan._id}, status: ${loan.status}, paymentStatus: ${loan.paymentStatus}`);
+        console.log(`[Cron] Processing loan ${loan.loanId || loan._id} (${i + 1}/${failedLoans.length}), status: ${loan.status}, paymentStatus: ${loan.paymentStatus}`);
         
         // Check if we've already sent email for this loan (within last 24 hours)
         // We'll send email again if loan was updated (new failure)
@@ -59,24 +90,80 @@ const checkAndSendPaymentFailureEmails = async () => {
 
         console.log(`[Cron] Attempting to send payment failure email to ${loan.user.email} for loan ${loan.loanId}...`);
         
-        // Send email
-        const result = await sendPaymentFailureEmail(loan.user, loan);
+        // Send email with retry logic
+        let result = null;
+        let retryCount = 0;
+        const maxRetries = 3;
         
-        if (result.success) {
+        while (retryCount < maxRetries) {
+          try {
+            result = await sendPaymentFailureEmail(loan.user, loan);
+            
+            // Check if it's a rate limit error
+            if (!result.success && isRateLimitError(result)) {
+              rateLimitHit = true;
+              const waitTime = Math.pow(2, retryCount) * 30; // Exponential backoff: 30s, 60s, 120s
+              console.log(`[Cron] ⚠️ Rate limit error. Waiting ${waitTime} seconds before retry ${retryCount + 1}/${maxRetries}...`);
+              await delay(waitTime * 1000);
+              retryCount++;
+              continue;
+            }
+            
+            // If success or non-rate-limit error, break the retry loop
+            break;
+          } catch (error) {
+            if (isRateLimitError(error)) {
+              rateLimitHit = true;
+              const waitTime = Math.pow(2, retryCount) * 30;
+              console.log(`[Cron] ⚠️ Rate limit exception. Waiting ${waitTime} seconds before retry ${retryCount + 1}/${maxRetries}...`);
+              await delay(waitTime * 1000);
+              retryCount++;
+              
+              if (retryCount >= maxRetries) {
+                result = { success: false, error: 'Rate limit exceeded after retries' };
+              }
+              continue;
+            } else {
+              // Non-rate-limit error, don't retry
+              result = { success: false, error: error.message };
+              break;
+            }
+          }
+        }
+        
+        if (result && result.success) {
           sentEmailTracker.add(loanKey);
           emailsSent++;
           console.log(`[Cron] ✅ Payment failure email sent successfully to ${loan.user.email} for loan ${loan.loanId}`);
         } else {
-          console.error(`[Cron] ❌ Failed to send email for loan ${loan.loanId}:`, result.error || result.message);
+          const errorMsg = result?.error || result?.message || 'Unknown error';
+          console.error(`[Cron] ❌ Failed to send email for loan ${loan.loanId}: ${errorMsg}`);
+          
+          // If rate limit error, mark it so we wait before next email
+          if (isRateLimitError(result) || errorMsg.includes('Ratelimit')) {
+            rateLimitHit = true;
+          }
+          
           emailsSkipped++;
         }
       } catch (error) {
         console.error(`[Cron] ❌ Error processing loan ${loan.loanId || loan._id}:`, error.message);
+        
+        // Check if it's a rate limit error
+        if (isRateLimitError(error)) {
+          rateLimitHit = true;
+          console.log(`[Cron] ⚠️ Rate limit detected in catch block. Will wait before next email.`);
+        }
+        
         emailsSkipped++;
       }
     }
 
     console.log(`[Cron] Payment failure email check completed. Sent: ${emailsSent}, Skipped: ${emailsSkipped}`);
+    
+    if (rateLimitHit) {
+      console.log(`[Cron] ⚠️ Rate limit was encountered during this run. Some emails may have been skipped.`);
+    }
     
     // Clean up old entries from tracker (keep only last 1000 entries to prevent memory issues)
     if (sentEmailTracker.size > 1000) {

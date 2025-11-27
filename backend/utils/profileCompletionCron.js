@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const User = require('../models/User');
 const { sendProfileCompletionReminderEmail } = require('./emailService');
+const { sendProfileCompletionReminder } = require('./whatsappService');
 
 // Track which users we've already sent emails to (to avoid spam)
 // Format: userId_timestamp (we'll send again after 24 hours)
@@ -52,13 +53,40 @@ const checkAndSendProfileCompletionReminders = async () => {
     console.log(`[Profile Cron] Found ${incompleteUsers.length} user(s) with incomplete profiles.`);
 
     let emailsSent = 0;
+    let whatsappSent = 0;
     let emailsSkipped = 0;
+    let rateLimitHit = false;
 
     const now = Date.now();
     const twentyFourHours = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-    for (const user of incompleteUsers) {
+    // Helper function to delay execution
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Helper function to check if error is rate limit
+    const isRateLimitError = (error) => {
+      return error?.message?.includes('Ratelimit') || 
+             error?.response?.includes('Ratelimit') ||
+             error?.statusCode === 502 || // Insufficient balance
+             (error?.statusCode === 451 && error?.error?.includes('Ratelimit'));
+    };
+
+    for (let i = 0; i < incompleteUsers.length; i++) {
+      const user = incompleteUsers[i];
+      
       try {
+        // If rate limit was hit, wait longer before continuing
+        if (rateLimitHit) {
+          console.log(`[Profile Cron] Rate limit detected. Waiting 60 seconds before continuing...`);
+          await delay(60000); // Wait 60 seconds
+          rateLimitHit = false; // Reset flag
+        }
+
+        // Add delay between messages to avoid rate limiting (2 seconds between messages)
+        if (i > 0) {
+          await delay(2000); // 2 second delay between messages
+        }
+
         // Re-check if profile is actually incomplete (in case isProfileComplete flag is outdated)
         // Check if profile is complete using comprehensive check including all fields and documents
         const hasBasicInfo = !!(
@@ -86,45 +114,100 @@ const checkAndSendProfileCompletionReminders = async () => {
 
         // Skip if profile is actually complete
         if (isActuallyComplete) {
-          console.log(`[Profile Cron] User ${user.email} profile is complete, skipping...`);
+          console.log(`[Profile Cron] User ${user.email || user.phone} profile is complete, skipping...`);
           emailsSkipped++;
           continue;
         }
 
-        // Skip if user doesn't have email
-        if (!user.email || user.email.trim() === '') {
-          console.log(`[Profile Cron] Skipping user ${user.name} - no email address`);
-          emailsSkipped++;
-          continue;
-        }
-
-        // Check if we've sent email in last 24 hours
+        // Check if we've sent reminder in last 24 hours
         const lastSent = sentEmailTracker.get(user._id.toString());
         if (lastSent && (now - lastSent < twentyFourHours)) {
           const hoursSinceLastEmail = Math.floor((now - lastSent) / (60 * 60 * 1000));
-          console.log(`[Profile Cron] Email already sent to ${user.email} ${hoursSinceLastEmail} hours ago, skipping...`);
+          console.log(`[Profile Cron] Reminder already sent to ${user.email || user.phone} ${hoursSinceLastEmail} hours ago, skipping...`);
           emailsSkipped++;
           continue;
         }
 
-        // Send email
-        const result = await sendProfileCompletionReminderEmail(user);
-        
-        if (result.success) {
+        // Send email (if email exists)
+        let emailResult = null;
+        if (user.email && user.email.trim() !== '') {
+          try {
+            emailResult = await sendProfileCompletionReminderEmail(user);
+            if (emailResult.success) {
+              emailsSent++;
+              console.log(`[Profile Cron] ✅ Email sent to ${user.email} (${user.name})`);
+            } else {
+              console.error(`[Profile Cron] ❌ Failed to send email to ${user.email}:`, emailResult.error || emailResult.message);
+            }
+          } catch (emailError) {
+            console.error(`[Profile Cron] ❌ Email error for ${user.email}:`, emailError.message);
+          }
+        }
+
+        // Send WhatsApp message (if phone exists)
+        let whatsappResult = null;
+        if (user.phone && user.phone.trim() !== '') {
+          try {
+            // Retry logic for WhatsApp
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+              whatsappResult = await sendProfileCompletionReminder(user.phone, user.name);
+              
+              // Check if it's a rate limit error
+              if (!whatsappResult.success && isRateLimitError(whatsappResult)) {
+                rateLimitHit = true;
+                const waitTime = Math.pow(2, retryCount) * 30; // Exponential backoff: 30s, 60s, 120s
+                console.log(`[Profile Cron] ⚠️ WhatsApp rate limit. Waiting ${waitTime} seconds before retry ${retryCount + 1}/${maxRetries}...`);
+                await delay(waitTime * 1000);
+                retryCount++;
+                continue;
+              }
+              
+              // If success or non-rate-limit error, break the retry loop
+              break;
+            }
+            
+            if (whatsappResult && whatsappResult.success) {
+              whatsappSent++;
+              console.log(`[Profile Cron] ✅ WhatsApp sent to ${user.phone} (${user.name})`);
+            } else {
+              const errorMsg = whatsappResult?.error || 'Unknown error';
+              console.error(`[Profile Cron] ❌ Failed to send WhatsApp to ${user.phone}:`, errorMsg);
+              
+              // If rate limit error, mark it so we wait before next message
+              if (isRateLimitError(whatsappResult) || errorMsg.includes('Ratelimit')) {
+                rateLimitHit = true;
+              }
+            }
+          } catch (whatsappError) {
+            console.error(`[Profile Cron] ❌ WhatsApp error for ${user.phone}:`, whatsappError.message);
+            
+            // Check if it's a rate limit error
+            if (isRateLimitError(whatsappError)) {
+              rateLimitHit = true;
+            }
+          }
+        }
+
+        // Mark as sent if either email or WhatsApp was sent successfully
+        if ((emailResult && emailResult.success) || (whatsappResult && whatsappResult.success)) {
           sentEmailTracker.set(user._id.toString(), now);
-          emailsSent++;
-          console.log(`[Profile Cron] Profile completion reminder sent to ${user.email} (${user.name})`);
         } else {
-          console.error(`[Profile Cron] Failed to send email to ${user.email}:`, result.error || result.message);
           emailsSkipped++;
         }
       } catch (error) {
-        console.error(`[Profile Cron] Error processing user ${user._id}:`, error);
+        console.error(`[Profile Cron] ❌ Error processing user ${user._id}:`, error);
         emailsSkipped++;
       }
     }
 
-    console.log(`[Profile Cron] Profile completion reminder check completed. Sent: ${emailsSent}, Skipped: ${emailsSkipped}`);
+    console.log(`[Profile Cron] Profile completion reminder check completed. Emails: ${emailsSent}, WhatsApp: ${whatsappSent}, Skipped: ${emailsSkipped}`);
+    
+    if (rateLimitHit) {
+      console.log(`[Profile Cron] ⚠️ Rate limit was encountered during this run. Some messages may have been skipped.`);
+    }
     
     // Clean up old entries from tracker (keep only entries from last 7 days)
     const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
