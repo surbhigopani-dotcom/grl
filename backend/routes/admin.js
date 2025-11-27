@@ -138,11 +138,40 @@ router.get('/loans', async (req, res) => {
 });
 
 // @route   GET /api/admin/users
-// @desc    Get all users with profile completion details
+// @desc    Get all users with profile completion details (with pagination)
 // @access  Public (should be protected in production)
 router.get('/users', async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const filter = req.query.filter || 'all'; // 'all', 'complete', 'incomplete'
+    const skip = (page - 1) * limit;
+
+    // Build query
+    let query = {};
+    
+    // Search filter
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Profile completion filter
+    if (filter === 'complete') {
+      query.isProfileComplete = true;
+    } else if (filter === 'incomplete') {
+      query.isProfileComplete = false;
+    }
+
+    // Get total count
+    const total = await User.countDocuments(query);
+
+    // Get users with pagination
+    const users = await User.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit);
     
     // Calculate profile completion for each user
     const usersWithStats = users.map(user => {
@@ -202,20 +231,24 @@ router.get('/users', async (req, res) => {
       };
     });
     
-    // Calculate overall statistics
-    const totalUsers = users.length;
-    const completeProfiles = users.filter(u => u.isProfileComplete).length;
-    const incompleteProfiles = totalUsers - completeProfiles;
+    // Calculate overall statistics (for all users, not just current page)
+    const allUsersCount = await User.countDocuments();
+    const completeProfilesCount = await User.countDocuments({ isProfileComplete: true });
+    const incompleteProfilesCount = allUsersCount - completeProfilesCount;
     const avgCompletion = usersWithStats.length > 0
       ? Math.round(usersWithStats.reduce((sum, u) => sum + u.completionPercentage, 0) / usersWithStats.length)
       : 0;
     
     res.json({
       users: usersWithStats,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
       statistics: {
-        totalUsers,
-        completeProfiles,
-        incompleteProfiles,
+        totalUsers: allUsersCount,
+        completeProfiles: completeProfilesCount,
+        incompleteProfiles: incompleteProfilesCount,
         avgCompletionPercentage: avgCompletion
       }
     });

@@ -12,6 +12,9 @@ const Login = () => {
   const navigate = useNavigate();
   const { verifyWhatsAppOTP, sendOTP, loginWithPhoneDirect } = useAuth();
   
+  // Check if OTP is enabled from environment variable
+  const isOTPEnabled = process.env.REACT_APP_OTP_ENABLED !== 'false';
+  
   const [step, setStep] = useState('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -75,8 +78,6 @@ const Login = () => {
   };
 
   const handleSendOTP = async () => {
-    console.log('=== WHATSAPP OTP SEND START ===');
-    
     if (phone.length !== 10) {
       toast.error('Please enter a valid 10-digit phone number');
       return;
@@ -87,6 +88,68 @@ const Login = () => {
       return;
     }
 
+    // If OTP is disabled, use direct login
+    if (!isOTPEnabled) {
+      setLoading(true);
+      try {
+        console.log('=== DIRECT LOGIN (OTP DISABLED) START ===');
+        console.log('Phone number:', phone);
+        
+        // Check if user exists first
+        let userIsNew = false;
+        try {
+          const checkResult = await sendOTP(`+91${phone}`);
+          console.log('User check result:', checkResult);
+          if (checkResult.success) {
+            userIsNew = checkResult.isNewUser;
+            setIsNewUser(checkResult.isNewUser);
+          } else {
+            userIsNew = true;
+            setIsNewUser(true);
+          }
+        } catch (error) {
+          console.error('User check error:', error);
+          userIsNew = true;
+          setIsNewUser(true);
+        }
+
+        // If new user, ask for name first
+        if (userIsNew) {
+          setStep('name');
+          setLoading(false);
+          return;
+        }
+
+        // Existing user - direct login
+        const phoneNumber = `+91${phone}`;
+        const result = await loginWithPhoneDirect(phoneNumber);
+        
+        if (result.success) {
+          setLoading(false);
+          if (result.needsProfileSetup) {
+            navigate('/profile-setup');
+          } else {
+            navigate('/home');
+          }
+        } else {
+          setLoading(false);
+          if (result.requiresName) {
+            setIsNewUser(true);
+            setStep('name');
+          } else {
+            toast.error(result.message || 'Login failed. Please try again.');
+          }
+        }
+      } catch (error) {
+        console.error('Direct login error:', error);
+        setLoading(false);
+        toast.error(error.response?.data?.message || 'Login failed. Please try again.');
+      }
+      return;
+    }
+
+    // OTP is enabled - send OTP
+    console.log('=== WHATSAPP OTP SEND START ===');
     setLoading(true);
     try {
       console.log('Sending OTP to phone:', phone);
@@ -276,11 +339,16 @@ const Login = () => {
                 style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                 disabled={loading || phone.length !== 10 || !privacyAccepted}
               >
-                {loading ? 'Sending OTP...' : 'Send OTP via WhatsApp'}
+                {loading 
+                  ? (isOTPEnabled ? 'Sending OTP...' : 'Logging in...') 
+                  : (isOTPEnabled ? 'Send OTP via WhatsApp' : 'Continue')
+                }
               </Button>
-              <p className="text-xs text-center text-gray-500 mt-2" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
-                OTP will be sent to your WhatsApp number
-              </p>
+              {isOTPEnabled && (
+                <p className="text-xs text-center text-gray-500 mt-2" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  OTP will be sent to your WhatsApp number
+                </p>
+              )}
             </div>
           )}
 
@@ -312,8 +380,8 @@ const Login = () => {
             </div>
           )}
 
-          {/* OTP Input */}
-          {step === 'otp' && otpSent && (
+          {/* OTP Input - Only show if OTP is enabled */}
+          {isOTPEnabled && step === 'otp' && otpSent && (
             <div className="space-y-6">
               {isNewUser && (
                 <div>
